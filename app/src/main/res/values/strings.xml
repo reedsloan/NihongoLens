@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">NihongoLens</string>
+
+    <string name="permission_required">Permission required</string>
+    <string name="go_to_app_settings">Go to app settings</string>
+    <string name="confirm">Confirm</string>
+    <string name="cancel">Cancel</string>
+</resources>
