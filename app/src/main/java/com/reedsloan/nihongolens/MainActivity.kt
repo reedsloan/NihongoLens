@@ -6,6 +6,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.view.CameraController
+import androidx.camera.view.LifecycleCameraController
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,6 +15,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -65,6 +68,16 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
+                    // Camera controller
+                    val cameraController = remember {
+                        LifecycleCameraController(applicationContext).apply {
+                            setEnabledUseCases(
+                                CameraController.IMAGE_CAPTURE or
+                                        CameraController.VIDEO_CAPTURE
+                            )
+                        }
+                    }
+
                     // Permission dialog
                     Box(Modifier.fillMaxSize()) {
                         // Get the first permission request from the queue
@@ -106,7 +119,8 @@ class MainActivity : ComponentActivity() {
                                 OCRScreen(
                                     ocrState = ocrState,
                                     onOCREvent = { ocrViewModel.onEvent(it) },
-                                    onPermissionEvent = { permissionViewModel.onEvent(it) }
+                                    onPermissionEvent = { permissionViewModel.onEvent(it) },
+                                    cameraController = cameraController
                                 )
                             }
                         }
