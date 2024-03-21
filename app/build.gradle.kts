@@ -58,6 +58,8 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "/META-INF/CONTRIBUTORS.md"
+            excludes += "/META-INF/LICENSE.md"
         }
     }
 }
@@ -127,4 +129,7 @@ dependencies {
 
     // ConstraintLayout Compose
     implementation("androidx.constraintlayout:constraintlayout-compose:1.0.1")
+
+    // Kotori
+    implementation("com.github.wanasit.kotori:kotori:1.0.0")
 }
