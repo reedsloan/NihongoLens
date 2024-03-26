@@ -117,10 +117,11 @@ class MainActivity : ComponentActivity() {
                                 route = ScreenRoute.OCRScreen.route
                             ) {
                                 OCRScreen(
-                                    ocrState = ocrState,
+                                    ocrScreenState = ocrState,
                                     onOCREvent = { ocrViewModel.onEvent(it) },
                                     onPermissionEvent = { permissionViewModel.onEvent(it) },
-                                    cameraController = cameraController
+                                    cameraController = cameraController,
+                                    navController = navController
                                 )
                             }
                         }

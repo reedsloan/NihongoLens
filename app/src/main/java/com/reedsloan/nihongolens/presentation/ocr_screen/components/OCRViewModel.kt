@@ -17,56 +17,82 @@ import com.github.wanasit.kotori.optimized.DefaultTermFeatures
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.japanese.JapaneseTextRecognizerOptions
+import com.reedsloan.nihongolens.domain.model.JapaneseEnglishDictionary
+import com.reedsloan.nihongolens.domain.model.JapaneseEnglishEntry
+import com.reedsloan.nihongolens.domain.use_case.GetDictionary
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 
 @HiltViewModel
 class OCRViewModel @Inject constructor(
     private val app: Application,
-    private val tokenizer: Tokenizer<DefaultTermFeatures>
+    private val getDictionary: GetDictionary
 ) : ViewModel() {
-    private val _state = MutableStateFlow(OCRState())
+    private val _state = MutableStateFlow(OCRScreenState())
     val state = _state
+    private lateinit var dictionary: JapaneseEnglishDictionary
+    private val dictionaryJob = viewModelScope.launch {
+        _state.update { it.copy(dictionaryIsLoading = true) }
+        dictionary = getDictionary()
+        _state.update { it.copy(dictionaryIsLoading = false) }
+    }
+
+    private lateinit var tokenizer: Tokenizer<DefaultTermFeatures>
+
+    private val tokenizerJob = viewModelScope.launch {
+        _state.update { it.copy(tokenizerLoading = true) }
+
+        // This withContext block is a coroutine context switcher.
+        // It switches the coroutine context to Dispatchers.IO
+        // so that the tokenizer can be created on a background thread.
+        withContext(Dispatchers.IO) {
+            Tokenizer.createDefaultTokenizer()
+        }.let { result ->
+            tokenizer = result
+            _state.update { it.copy(tokenizerLoading = false) }
+        }
+    }
+
+    init {
+        dictionaryJob.start()
+        tokenizerJob.start()
+    }
 
     fun onEvent(event: OCREvent) {
         when (event) {
             is OCREvent.ClickCamera -> {
-                if (_state.value.ocrViewMode == OCRViewMode.Camera) {
-                    _state.value = OCRState(ocrViewMode = OCRViewMode.Result, isScanning = true)
-                    event.localCameraController.takePicture(ContextCompat.getMainExecutor(app),
-                        object : OnImageCapturedCallback() {
-                            override fun onCaptureSuccess(image: ImageProxy) {
-                                super.onCaptureSuccess(image)
+                _state.update { it.copy(ocrViewMode = OCRViewMode.Result, isScanning = true) }
+                event.localCameraController.takePicture(ContextCompat.getMainExecutor(app),
+                    object : OnImageCapturedCallback() {
+                        override fun onCaptureSuccess(image: ImageProxy) {
+                            super.onCaptureSuccess(image)
 
-                                val matrix = Matrix().apply {
-                                    postRotate(image.imageInfo.rotationDegrees.toFloat())
-                                }
-                                val rotatedBitmap = Bitmap.createBitmap(
-                                    image.toBitmap(), 0, 0, image.width, image.height, matrix, true
-                                )
-
-                                runTextRecognition(rotatedBitmap)
-                                onPhotoTaken(rotatedBitmap)
+                            val matrix = Matrix().apply {
+                                postRotate(image.imageInfo.rotationDegrees.toFloat())
                             }
+                            val rotatedBitmap = Bitmap.createBitmap(
+                                image.toBitmap(), 0, 0, image.width, image.height, matrix, true
+                            )
 
-                            override fun onError(exception: ImageCaptureException) {
-                                super.onError(exception)
-                                Log.e("OCRViewModel", "Could not take photo", exception)
-                            }
-                        })
-                } else {
-                    _state.value = OCRState(ocrViewMode = OCRViewMode.Camera, ocrResult = null)
-                    return
-                }
+                            runTextRecognition(rotatedBitmap)
+                            onPhotoTaken(rotatedBitmap)
+                        }
 
+                        override fun onError(exception: ImageCaptureException) {
+                            super.onError(exception)
+                            Log.e("OCRViewModel", "Could not take photo", exception)
+                        }
+                    })
             }
 
             is OCREvent.StopScan -> {
-                _state.value = OCRState(isScanning = false, image = null)
+                _state.update { it.copy(isScanning = false) }
             }
 
             is OCREvent.OnClickLine -> {
@@ -78,17 +104,52 @@ class OCRViewModel @Inject constructor(
             }
 
             is OCREvent.OnClickTextBlock -> {
-                tokenizeText(event.textBlock.text)
+
             }
 
             is OCREvent.OnClickWord -> {
+                val word = event.word
 
+            }
+
+            is OCREvent.OnBack -> {
+                when (state.value.ocrViewMode) {
+                    OCRViewMode.Result -> {
+                        _state.update { it.copy(ocrViewMode = OCRViewMode.Camera) }
+                    }
+
+                    is OCRViewMode.InspectResult -> {
+                        _state.update { it.copy(ocrViewMode = OCRViewMode.Result) }
+                    }
+
+                    OCRViewMode.Camera -> {
+                        event.navigateBack()
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun getJapaneseEnglishEntries(strings: List<String>): List<JapaneseEnglishEntry> {
+        dictionaryJob.join()
+
+        return strings.mapNotNull { string ->
+            val match = dictionary.entries.filter { entry ->
+                entry.word.any { it.text == string }
+            }.sortedBy {
+                it.word.first().common
+            }
+
+            if (match.isNotEmpty()) {
+                match.first()
+            } else {
+                null
             }
         }
     }
 
     private fun onPhotoTaken(image: Bitmap) {
-        _state.value = OCRState(image = image)
+        _state.update { it.copy(image = image) }
     }
 
 
@@ -103,21 +164,22 @@ class OCRViewModel @Inject constructor(
                 _state.update { ocrState ->
                     ocrState.copy(
                         isScanning = false,
-                        ocrResult =
+                        ocrResults =
                         texts.textBlocks.flatMap { it.lines }.mapIndexed { index, line ->
+                            val tokenizedText = tokenizeText(line.text)
                             OCRResult(
                                 text = line.text,
                                 topLeft = line.cornerPoints?.get(0)?.let { Point(it.x, it.y) }!!,
                                 confidence = line.confidence,
-                                tokenizedText = tokenizeText(line.text),
+                                tokenizedText = tokenizedText,
                                 angle = line.angle,
-                                id = index
+                                id = index,
+                                japaneseEnglishEntries = getJapaneseEnglishEntries(tokenizedText.map { it.text })
                             )
                         }
                     )
                 }
             }
-
         }.addOnFailureListener { e -> // Task failed with an exception
             _state.update { it.copy(isScanning = false, error = e.message) }
             e.printStackTrace()
@@ -125,9 +187,9 @@ class OCRViewModel @Inject constructor(
         }
     }
 
-    private fun tokenizeText(text: String): List<Token<DefaultTermFeatures>> {
+    private suspend fun tokenizeText(text: String): List<Token<DefaultTermFeatures>> {
+        tokenizerJob.join()
         Log.d("OCRViewModel", "Begin tokenizing text: $text at ${System.currentTimeMillis()}")
         return tokenizer.tokenize(text).map { it }
-
     }
 }

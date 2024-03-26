@@ -3,11 +3,11 @@ package com.reedsloan.nihongolens.presentation.permission
 import android.app.Activity
 import android.app.Application
 import android.content.pm.PackageManager
-import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.reedsloan.nihongolens.domain.repository.AppDataRepository
+import com.reedsloan.nihongolens.domain.use_case.GetAppConfiguration
+import com.reedsloan.nihongolens.domain.use_case.UpdateAppConfiguration
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,7 +18,8 @@ import javax.inject.Inject
 @HiltViewModel
 class PermissionViewModel @Inject constructor(
     private val app: Application,
-    private val appDataRepository: AppDataRepository
+    private val getAppConfiguration: GetAppConfiguration,
+    private val updateAppConfiguration: UpdateAppConfiguration
 ) : ViewModel() {
     private val _state = MutableStateFlow(PermissionState())
     val state = _state.asStateFlow()
@@ -92,14 +93,14 @@ class PermissionViewModel @Inject constructor(
 
     private fun getAppData() {
         viewModelScope.launch {
-            val appData = appDataRepository.getAppData()
-            _state.update { it.copy(appData = appData) }
+            val appData = getAppConfiguration()
+            _state.update { it.copy(appConfiguration = appData) }
         }
     }
 
     private fun updateAppData() {
         viewModelScope.launch {
-            _state.value.appData?.let { appDataRepository.updateAppData(it) }
+            state.value.appConfiguration.let { updateAppConfiguration(it) }
         }
     }
 

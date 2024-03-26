@@ -1,8 +1,8 @@
 package com.reedsloan.nihongolens.domain.repository
 
-import com.reedsloan.nihongolens.domain.model.AppData
+import com.reedsloan.nihongolens.data.local.app_configuration.AppConfigurationEntity
 
-interface AppDataRepository {
-    suspend fun getAppData(): AppData
-    suspend fun updateAppData(appData: AppData)
+interface AppConfigurationRepository {
+    suspend fun getAppConfiguration(): AppConfigurationEntity
+    suspend fun updateAppConfiguration(appConfiguration: AppConfigurationEntity)
 }

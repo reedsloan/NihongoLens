@@ -3,6 +3,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("com.google.devtools.ksp")
     id("com.google.dagger.hilt.android")
+//    kotlin("plugin.serialization") version "1.9.23"
 }
 
 kotlin {
@@ -32,7 +33,6 @@ android {
             useSupportLibrary = true
         }
     }
-
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -43,17 +43,17 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "17"
     }
     buildFeatures {
         compose = true
     }
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.10"
+        kotlinCompilerExtensionVersion = "1.5.11"
     }
     packaging {
         resources {
@@ -66,8 +66,8 @@ android {
 
 dependencies {
     val roomVersion = "2.6.1"
-    val hiltVersion: String by project
-    val materialVersion = "1.6.3"
+    val hiltVersion = "2.51"
+    val materialVersion = "1.6.4"
     val lifecycleVersion = "2.7.0"
 
     implementation("androidx.core:core-ktx:1.12.0")
@@ -78,32 +78,43 @@ dependencies {
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
+
+    // TEST DEPENDENCIES
     testImplementation("junit:junit:4.13.2")
+    // hilt testing
+    testImplementation("com.google.dagger:hilt-android-testing:$hiltVersion")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0")
+
+    // UI TEST DEPENDENCIES
+    androidTestImplementation("com.google.dagger:hilt-android-testing:$hiltVersion")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
     androidTestImplementation(platform("androidx.compose:compose-bom:2023.10.01"))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+
+    // Compose UI Tooling
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 
-    // Room
+    // Room Database
     implementation("androidx.room:room-runtime:$roomVersion")
     ksp("androidx.room:room-compiler:$roomVersion")
-    // Kotlin Extensions and Coroutines support for Room
+
+    // Kotlin Extensions and Coroutines support for Room Database
     implementation("androidx.room:room-ktx:$roomVersion")
 
-    // Dagger - Hilt
+    // Hilt for dependency injection
     implementation("com.google.dagger:hilt-android:$hiltVersion")
     ksp("com.google.dagger:hilt-android-compiler:$hiltVersion")
     ksp("com.google.dagger:hilt-compiler:$hiltVersion")
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
 
-    // Material icons
+    // Material icons for Compose
     implementation("androidx.compose.material:material-icons-core:$materialVersion")
     implementation("androidx.compose.material:material-icons-extended-android:$materialVersion")
 
     // Gson for JSON parsing
-    implementation("com.google.code.gson:gson:2.10")
+    implementation("com.google.code.gson:gson:2.10.1")
 
     // To recognize Japanese script
     implementation("com.google.mlkit:text-recognition-japanese:16.0.0")
@@ -132,4 +143,11 @@ dependencies {
 
     // Kotori
     implementation("com.github.wanasit.kotori:kotori:1.0.0")
+
+    // Google Fonts API
+    implementation("androidx.compose.ui:ui-text-google-fonts:1.6.3")
+
+    // Moshi
+    ksp("com.squareup.moshi:moshi-kotlin-codegen:1.15.0")
+    implementation("com.squareup.moshi:moshi:1.15.0")
 }

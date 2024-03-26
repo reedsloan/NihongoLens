@@ -2,11 +2,13 @@ package com.reedsloan.nihongolens.di
 
 import android.app.Application
 import androidx.room.Room
-import com.github.wanasit.kotori.Tokenizer
-import com.github.wanasit.kotori.optimized.DefaultTermFeatures
-import com.reedsloan.nihongolens.data.data_source.AppDataDatabase
-import com.reedsloan.nihongolens.data.repository.AppDataRepositoryImpl
-import com.reedsloan.nihongolens.domain.repository.AppDataRepository
+import com.reedsloan.nihongolens.data.data_source.AppConfigurationDatabase
+import com.reedsloan.nihongolens.data.repository.AppConfigurationRepositoryImpl
+import com.reedsloan.nihongolens.data.repository.JMDictRepositoryImpl
+import com.reedsloan.nihongolens.domain.repository.AppConfigurationRepository
+import com.reedsloan.nihongolens.domain.repository.JMDictRepository
+import com.reedsloan.nihongolens.domain.use_case.GetAppConfiguration
+import com.reedsloan.nihongolens.domain.use_case.GetDictionary
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -15,24 +17,33 @@ import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
+
 object AppModule {
     @Provides
     @Singleton
-    fun provideAppDataDatabase(app: Application): AppDataDatabase {
+    fun provideAppDataDatabase(app: Application): AppConfigurationDatabase {
         return Room.databaseBuilder(
             app,
-            AppDataDatabase::class.java,
-            "app_data_database"
+            AppConfigurationDatabase::class.java,
+            "app_configuration_database"
         ).build()
     }
 
     @Provides
     @Singleton
-    fun provideAppDataRepository(appDataDatabase: AppDataDatabase): AppDataRepository {
-        return AppDataRepositoryImpl(appDataDatabase.dao)
+    fun provideAppConfigurationRepository(appConfigurationDatabase: AppConfigurationDatabase): AppConfigurationRepository {
+        return AppConfigurationRepositoryImpl(appConfigurationDatabase.dao)
     }
 
     @Provides
     @Singleton
-    fun provideTokenizer() = Tokenizer.createDefaultTokenizer()
+    fun provideJmdictRepo(app: Application): JMDictRepository = JMDictRepositoryImpl(app.applicationContext)
+
+    @Provides
+    @Singleton
+    fun provideGetAppConfigurationUseCase(appConfigurationRepository: AppConfigurationRepository) = GetAppConfiguration(appConfigurationRepository)
+
+    @Provides
+    @Singleton
+    fun getDictionaryUseCase(jmdictRepo: JMDictRepositoryImpl) = GetDictionary(jmdictRepo)
 }

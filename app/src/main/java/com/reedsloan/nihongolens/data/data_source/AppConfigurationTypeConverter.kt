@@ -2,10 +2,10 @@ package com.reedsloan.nihongolens.data.data_source
 
 import androidx.room.TypeConverter
 import com.google.gson.Gson
-import com.reedsloan.nihongolens.domain.model.AppData
+import com.reedsloan.nihongolens.data.local.app_configuration.AppConfigurationEntity
 import com.reedsloan.nihongolens.presentation.permission.PermissionRequest
 
-class AppDataTypeConverter {
+class AppConfigurationTypeConverter {
     private val gson = Gson()
 
     @TypeConverter
@@ -19,12 +19,12 @@ class AppDataTypeConverter {
     }
 
     @TypeConverter
-    fun fromAppData(appData: AppData): String {
-        return gson.toJson(appData)
+    fun fromAppConfigurationEntity(appConfiguration: AppConfigurationEntity): String {
+        return gson.toJson(appConfiguration)
     }
 
     @TypeConverter
-    fun toAppData(appData: String): AppData {
-        return gson.fromJson(appData, AppData::class.java)
+    fun toAppConfigurationEntity(appConfiguration: String): AppConfigurationEntity {
+        return gson.fromJson(appConfiguration, AppConfigurationEntity::class.java)
     }
 }

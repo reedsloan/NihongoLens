@@ -1,9 +1,9 @@
 package com.reedsloan.nihongolens.presentation.permission
 
-import com.reedsloan.nihongolens.domain.model.AppData
+import com.reedsloan.nihongolens.domain.model.AppConfiguration
 
 data class PermissionState(
     val permissionRequestQueue: List<PermissionRequest> = emptyList(),
     val previouslyRequestedPermissions: List<String> = emptyList(),
-    val appData: AppData? = null
+    val appConfiguration: AppConfiguration = AppConfiguration()
 )
