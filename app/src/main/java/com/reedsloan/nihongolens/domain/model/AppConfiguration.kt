@@ -1,8 +1,6 @@
 package com.reedsloan.nihongolens.domain.model
 
-import com.reedsloan.nihongolens.presentation.permission.PermissionRequest
-
-class AppConfiguration(
-    val previouslyDeniedPermissions: List<PermissionRequest> = emptyList(),
+data class AppConfiguration(
+    val previouslyRequestedPermissions: List<String> = emptyList(),
     val hasSeenOnboarding: Boolean = false,
 )

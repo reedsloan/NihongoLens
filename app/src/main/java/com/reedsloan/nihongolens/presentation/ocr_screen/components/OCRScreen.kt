@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.CircularProgressIndicator
@@ -36,7 +37,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -50,6 +50,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -62,7 +63,6 @@ import com.reedsloan.nihongolens.domain.model.JapaneseEnglishEntry
 import com.reedsloan.nihongolens.presentation.permission.PermissionEvent
 import com.reedsloan.nihongolens.presentation.permission.PermissionRequest
 import com.reedsloan.nihongolens.ui.theme.NihongoLensTheme
-import kotlin.math.min
 
 @Composable
 fun OCRScreen(
@@ -92,9 +92,11 @@ fun OCRScreen(
         modifier = Modifier
             .width(displayMetrics.widthPixels.dp)
             .height(displayMetrics.heightPixels.dp)
+            .testTag("OCRScreen")
     ) {
         ocrScreenState.image?.let {
             Image(
+                modifier = Modifier.testTag("OCRImage"),
                 bitmap = it.asImageBitmap(),
                 contentDescription = "OCR Image",
                 contentScale = ContentScale.Crop,
@@ -115,8 +117,7 @@ fun OCRScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "tokenizerLoading: ${ocrScreenState.tokenizerLoading}",
-                    color = Color.Red
+                    text = "tokenizerLoading: ${ocrScreenState.tokenizerLoading}", color = Color.Red
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 if (ocrScreenState.tokenizerLoading) {
@@ -159,15 +160,14 @@ fun OCRScreen(
 
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
+        modifier = Modifier.fillMaxSize()
     ) {
         RecognizedText(ocrScreenState, onOCREvent)
 
 
         Box(modifier = Modifier.fillMaxSize()) {
             ConstraintLayout(modifier = Modifier.fillMaxSize()) {
-                val (switchCamera, captureImage) = createRefs()
+                val (switchCamera, bottomRightButton) = createRefs()
 
                 // Switch Camera (Front/Back)
                 IconButton(onClick = {
@@ -187,19 +187,37 @@ fun OCRScreen(
                     )
                 }
 
-                // Capture Image
-                IconButton(
-//                    enabled = !ocrState.isScanning && !ocrState.dictionaryIsLoading && !ocrState.tokenizerLoading,
-                    onClick = {
-                        onOCREvent(OCREvent.ClickCamera(cameraController, displayMetrics))
-                    }, modifier = Modifier.constrainAs(captureImage) {
-                        bottom.linkTo(parent.bottom)
-                        end.linkTo(parent.end)
-                    }) {
-                    Icon(
-                        imageVector = Icons.Default.PhotoCamera,
-                        contentDescription = "Capture Image"
-                    )
+                when(ocrScreenState.ocrViewMode) {
+                    OCRViewMode.Camera -> {
+                        IconButton(
+                            onClick = {
+                                onOCREvent(OCREvent.ClickCamera(cameraController, displayMetrics))
+                            }, modifier = Modifier.constrainAs(bottomRightButton) {
+                                bottom.linkTo(parent.bottom)
+                                end.linkTo(parent.end)
+                            }) {
+                            Icon(
+                                imageVector = Icons.Default.PhotoCamera,
+                                contentDescription = "Capture Image"
+                            )
+                        }
+                    }
+
+                    else -> {
+                        // back button
+                        IconButton(
+                            onClick = {
+                                onOCREvent(OCREvent.OnBack(navController::popBackStack))
+                            }, modifier = Modifier.constrainAs(bottomRightButton) {
+                                bottom.linkTo(parent.bottom)
+                                end.linkTo(parent.end)
+                            }) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back"
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -208,18 +226,16 @@ fun OCRScreen(
 
 @Composable
 fun RecognizedText(
-    ocrScreenState: OCRScreenState,
-    onOCREvent: (OCREvent) -> Unit
+    ocrScreenState: OCRScreenState, onOCREvent: (OCREvent) -> Unit
 ) {
     val image = ocrScreenState.image ?: return
 
-    val aspectRatio = image.width.toFloat() / ocrScreenState.image.height.toFloat()
+    val aspectRatio = image.width.toFloat() / image.height.toFloat()
     val displayMetrics = LocalContext.current.resources.displayMetrics
     val screenAspectRatio =
         displayMetrics.widthPixels.toFloat() / displayMetrics.heightPixels.toFloat()
 
-    val imageOrigin =
-        ocrScreenState.image.let { PointF(it.width / 2F, it.height / 2F) }
+    val imageOrigin = ocrScreenState.image.let { PointF(it!!.width / 2F, it.height / 2F) }
     val deviceOrigin = displayMetrics.let {
         PointF(it.widthPixels / 2f, it.heightPixels / 2f)
     }
@@ -242,9 +258,9 @@ fun RecognizedText(
                     val offsetFromOriginY = topLeft.y - imageOrigin.y
 
                     val offsetFromOriginXScaled =
-                        offsetFromOriginX * (displayMetrics.widthPixels.toFloat() / ocrScreenState.image.width.toFloat())
+                        offsetFromOriginX * (displayMetrics.widthPixels.toFloat() / image.width.toFloat())
                     val offsetFromOriginYScaled =
-                        offsetFromOriginY * (displayMetrics.heightPixels.toFloat() / ocrScreenState.image.height.toFloat())
+                        offsetFromOriginY * (displayMetrics.heightPixels.toFloat() / image.height.toFloat())
 
                     val translationXAdjusted =
                         deviceOrigin.x + offsetFromOriginXScaled / if (aspectRatio > screenAspectRatio) (screenAspectRatio / aspectRatio) else 1f
@@ -257,31 +273,23 @@ fun RecognizedText(
                             .drawWithContent {
                                 // draw a dot at the top left corner of the bounding box
                                 drawCircle(
-                                    color = Color.Red,
-                                    radius = 10f,
-                                    center = Offset(
-                                        translationXAdjusted,
-                                        translationYAdjusted
+                                    color = Color.Red, radius = 10f, center = Offset(
+                                        translationXAdjusted, translationYAdjusted
                                     )
                                 )
 
                                 // draw a big blue circle at the center of the image
                                 drawCircle(
-                                    color = Color.Blue,
-                                    radius = 30f,
-                                    center = Offset(
-                                        imageOrigin.x * (displayMetrics.widthPixels.toFloat() / ocrScreenState.image.width.toFloat()),
-                                        imageOrigin.y * (displayMetrics.heightPixels.toFloat() / ocrScreenState.image.height.toFloat())
+                                    color = Color.Blue, radius = 30f, center = Offset(
+                                        imageOrigin.x * (displayMetrics.widthPixels.toFloat() / image.width.toFloat()),
+                                        imageOrigin.y * (displayMetrics.heightPixels.toFloat() / image.height.toFloat())
                                     )
                                 )
 
                                 // draw a big green circle at the center of the device
                                 drawCircle(
-                                    color = Color.Green,
-                                    radius = 20f,
-                                    center = Offset(
-                                        deviceOrigin.x,
-                                        deviceOrigin.y
+                                    color = Color.Green, radius = 20f, center = Offset(
+                                        deviceOrigin.x, deviceOrigin.y
                                     )
                                 )
                             }) {}
@@ -289,6 +297,7 @@ fun RecognizedText(
                         text = ocrResult.text,
                         style = TextStyle(fontSize = 20.sp),
                         modifier = Modifier
+                            .testTag("OCRText")
                             .graphicsLayer {
                                 translationX = translationXAdjusted
                                 translationY = translationYAdjusted
@@ -306,7 +315,7 @@ fun RecognizedText(
                 if (ocrScreenState.ocrResults == null) return
                 val ocrResult = ocrScreenState.ocrResults.first { it.id == ocrViewMode.id }
 
-                HighlightingPreview(
+                TextDefinition(
                     strings = ocrResult.tokenizedText.map {
                         TextData(it.text, it.features.partOfSpeech)
                     },
@@ -322,9 +331,9 @@ fun RecognizedText(
 @OptIn(ExperimentalLayoutApi::class)
 @Preview(showBackground = true)
 @Composable
-fun HighlightingPreview(
+fun TextDefinition(
     loading: Boolean = false,
-    japaneseEnglishEntries: List<JapaneseEnglishEntry> = emptyList(),
+    japaneseEnglishEntries: Map<String, List<JapaneseEnglishEntry>> = emptyMap(),
     // TODO: Maybe put this in a UI test later :)
     strings: List<TextData> = listOf(
         TextData("こんにちは", DefaultTermFeatures.PartOfSpeech.INTERJECTION),
@@ -353,26 +362,23 @@ fun HighlightingPreview(
         TextData("かもしれません", DefaultTermFeatures.PartOfSpeech.VERB)
     )
 ) {
-    var showDefinitionForIndex: Int? by remember { mutableStateOf(null) }
+    var showDefinitionForWord: String? by remember { mutableStateOf(null) }
 
     NihongoLensTheme {
         Surface(
-            Modifier
-                .fillMaxSize()
+            Modifier.fillMaxSize()
         ) {
             Box(
                 Modifier
                     .fillMaxSize()
                     .background(
-                        MaterialTheme.colorScheme.surface,
-                        shape = MaterialTheme.shapes.extraSmall
+                        MaterialTheme.colorScheme.surface, shape = MaterialTheme.shapes.extraSmall
                     )
-                    .clickable { showDefinitionForIndex = null }
+                    .clickable { showDefinitionForWord = null }
                     .padding(16.dp),
-                contentAlignment = Alignment.Center
-            ) {
+                contentAlignment = Alignment.Center) {
                 FlowRow {
-                    strings.forEachIndexed { index, previewText ->
+                    strings.forEach { previewText ->
                         val color = when (previewText.partOfSpeech) {
                             DefaultTermFeatures.PartOfSpeech.ADNOMINAL -> Color(3, 132, 252)
                             DefaultTermFeatures.PartOfSpeech.ADJECTIVE -> Color(255, 165, 0)
@@ -390,53 +396,48 @@ fun HighlightingPreview(
                             DefaultTermFeatures.PartOfSpeech.UNKNOWN -> Color(0, 0, 0)
                         }
 
-                        val colorScalar by remember { mutableFloatStateOf(1.5f) }
-                        val selectedColor = color.copy(
-                            red = min(1F, color.red * colorScalar),
-                            green = min(1F, color.green * colorScalar),
-                            blue = min(1F, color.blue * colorScalar)
-                        )
+//                        val colorScalar by remember { mutableFloatStateOf(1.5f) }
+//                        val selectedColor = color.copy(
+//                            red = min(1F, color.red * colorScalar),
+//                            green = min(1F, color.green * colorScalar),
+//                            blue = min(1F, color.blue * colorScalar)
+//                        )
 
-                        Text(
-                            text = previewText.word,
-                            style = TextStyle(
-                                fontSize = 36.sp,
-                                color = if (showDefinitionForIndex == index) selectedColor else color,
-                                fontWeight = FontWeight.Bold,
-                            ),
-                            modifier = Modifier
-                                // border only on bottom
-                                .padding(end = 6.dp)
-                                .drawBehind {
-                                    val strokeWidth = 2.dp.toPx()
-                                    val distanceBelowText = 0.dp.toPx()
-                                    val y = (size.height + distanceBelowText - strokeWidth / 2)
+                        Text(text = previewText.word, style = TextStyle(
+                            fontSize = 36.sp,
+                            color = if (showDefinitionForWord == previewText.word) Color.White else color,
+                            fontWeight = FontWeight.Bold,
+                        ), modifier = Modifier
+                            // border only on bottom
+                            .padding(end = 6.dp)
+                            .drawBehind {
+                                val strokeWidth = 2.dp.toPx()
+                                val distanceBelowText = 0.dp.toPx()
+                                val y = (size.height + distanceBelowText - strokeWidth / 2)
 
 
-                                    if (previewText.partOfSpeech == DefaultTermFeatures.PartOfSpeech.OTHER || previewText.partOfSpeech == DefaultTermFeatures.PartOfSpeech.UNKNOWN) {
-                                        return@drawBehind
-                                    }
-
-                                    drawLine(
-                                        if (showDefinitionForIndex == index) Color.White else color,
-                                        Offset(0f, y),
-                                        Offset(size.width, y),
-                                        strokeWidth
-                                    )
+                                if (previewText.partOfSpeech == DefaultTermFeatures.PartOfSpeech.OTHER || previewText.partOfSpeech == DefaultTermFeatures.PartOfSpeech.UNKNOWN) {
+                                    return@drawBehind
                                 }
-                                .clickable {
-                                    showDefinitionForIndex = index
-                                }
-                        )
+
+                                drawLine(
+                                    if (showDefinitionForWord == previewText.word) Color.White else color,
+                                    Offset(0f, y),
+                                    Offset(size.width, y),
+                                    strokeWidth
+                                )
+                            }
+                            .clickable {
+                                showDefinitionForWord = previewText.word
+                            })
                     }
                 }
             }
 
-            showDefinitionForIndex?.let {
+            showDefinitionForWord?.let {
                 Box(
                     contentAlignment = Alignment.Center
-                )
-                {
+                ) {
                     ElevatedCard(
                         modifier = Modifier
                             .height(350.dp)
@@ -445,8 +446,7 @@ fun HighlightingPreview(
                     ) {
                         if (loading) {
                             Column(
-                                Modifier
-                                    .fillMaxSize(),
+                                Modifier.fillMaxSize(),
                                 verticalArrangement = Arrangement.Center,
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
@@ -464,23 +464,20 @@ fun HighlightingPreview(
                                 item {
                                     // text of dictionary for selected word
                                     Text(
-                                        text = "Definition for ${strings[it].word}",
-                                        style = TextStyle(fontSize = 20.sp)
+                                        text = "Definition for $showDefinitionForWord",
+                                        style = MaterialTheme.typography.headlineLarge
                                     )
                                     Spacer(modifier = Modifier.height(8.dp))
-                                    japaneseEnglishEntries[it].let { entry ->
-
+                                    japaneseEnglishEntries[showDefinitionForWord]?.forEach { entry ->
                                         Divider(Modifier.padding(vertical = 8.dp))
                                         Row {
                                             val kanji = entry.word
                                             val kana = entry.wordKanaOnly
 
-                                            kanji.forEach {
-                                                Text(
-                                                    text = it.toString(),
-                                                    style = MaterialTheme.typography.titleLarge,
-                                                )
-                                            }
+                                            Text(
+                                                text = kanji.joinToString(", ") { it.text },
+                                                style = MaterialTheme.typography.titleLarge,
+                                            )
 
                                             // dot separator
                                             if (kanji.isNotEmpty() && kana.isNotEmpty()) {
@@ -490,24 +487,23 @@ fun HighlightingPreview(
                                                 )
                                             }
 
-                                            kana.forEach {
-                                                Text(
-                                                    text = it.toString(),
-                                                    style = MaterialTheme.typography.titleLarge,
-                                                )
-
-                                            }
+                                            Text(
+                                                text = kana.joinToString(", ") { it.text },
+                                                style = MaterialTheme.typography.titleLarge,
+                                            )
                                         }
                                         val englishDefinitions = entry.englishDefinitions
 
                                         englishDefinitions.forEachIndexed { index, definition ->
                                             Spacer(modifier = Modifier.height(8.dp))
                                             Text(
-                                                text = "Part of Speech: ${definition.partOfSpeech}",
+                                                text = definition.partOfSpeech.joinToString(", "),
                                                 style = MaterialTheme.typography.bodyMedium.copy(
                                                     color = Color.Gray
-                                                )
+                                                ),
+                                                fontWeight = FontWeight.Bold
                                             )
+                                            Spacer(modifier = Modifier.height(4.dp))
 
                                             Row {
                                                 Text(
@@ -535,6 +531,5 @@ fun HighlightingPreview(
 }
 
 data class TextData(
-    val word: String,
-    val partOfSpeech: DefaultTermFeatures.PartOfSpeech
+    val word: String, val partOfSpeech: DefaultTermFeatures.PartOfSpeech
 )

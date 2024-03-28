@@ -50,8 +50,12 @@ class PermissionViewModel @Inject constructor(
                 // Add the permission to the list of previously requested permissions
                 // so we can check if it's permanently declined later
                 _state.update {
+                    val previousPermissions = it.appConfiguration.previouslyRequestedPermissions
+
                     it.copy(
-                        previouslyRequestedPermissions = it.previouslyRequestedPermissions + event.permission
+                        appConfiguration = it.appConfiguration.copy(
+                            previouslyRequestedPermissions = previousPermissions + event.permission
+                        )
                     )
                 }
                 updateAppData()
@@ -105,7 +109,7 @@ class PermissionViewModel @Inject constructor(
     }
 
     private fun isPermissionRequestFirstTime(permission: String): Boolean {
-        return !state.value.previouslyRequestedPermissions.contains(permission)
+        return !state.value.appConfiguration.previouslyRequestedPermissions.contains(permission)
     }
 
     private fun dequeuePermission() {

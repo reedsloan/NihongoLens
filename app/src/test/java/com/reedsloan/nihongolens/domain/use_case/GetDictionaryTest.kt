@@ -93,5 +93,20 @@ class GetDictionaryTest {
 
         // Assert that the info is 'as 〜に走る; occ. 趨る'
         assertEquals("as 〜に走る; occ. 趨る", info)
+
+        // search for "って"
+        val tteEntry = japaneseEnglishDictionary.entries.find { japaneseEnglishEntry ->
+            japaneseEnglishEntry.wordKanaOnly.any { it.text == "って" }
+        }
+
+        // Assert that the entry for "って" is not null
+        assertNotNull("Definition for って should not be null", tteEntry)
+
+        // {"id":"2086960","kanji":[],"kana":[{"common":true,"text":"って","tags":[],"appliesToKanji":["*"]},{"common":true,"text":"て","tags":[],"appliesToKanji":["*"]}],"sense":[{"partOfSpeech":["prt"],"appliesToKanji":["*"],"appliesToKana":["*"],"related":[["と",4]],"antonym":[],"field":[],"dialect":[],"misc":[],"info":["casual quoting particle"],"languageSource":[],"gloss":[{"lang":"eng","gender":null,"type":null,"text":"you said"},{"lang":"eng","gender":null,"type":null,"text":"he said"},{"lang":"eng","gender":null,"type":null,"text":"she said"},{"lang":"eng","gender":null,"type":null,"text":"they said"}]},{"partOfSpeech":["prt"],"appliesToKanji":["*"],"appliesToKana":["*"],"related":[["たって",1]],"antonym":[],"field":[],"dialect":[],"misc":[],"info":["after a verb in the past tense"],"languageSource":[],"gloss":[{"lang":"eng","gender":null,"type":null,"text":"even if"}]},{"partOfSpeech":["prt"],"appliesToKanji":["*"],"appliesToKana":["*"],"related":[],"antonym":[],"field":[],"dialect":[],"misc":[],"info":["as in かって; indicates a satirical or rhetorical question"],"languageSource":[],"gloss":[{"lang":"eng","gender":null,"type":null,"text":"do you seriously think that"}]},{"partOfSpeech":["prt"],"appliesToKanji":["*"],"appliesToKana":["*"],"related":[],"antonym":[],"field":[],"dialect":[],"misc":[],"info":["indicates certainty, insistence, emphasis, etc."],"languageSource":[],"gloss":[{"lang":"eng","gender":null,"type":null,"text":"I already told you"},{"lang":"eng","gender":null,"type":null,"text":"you should know by now that"},{"lang":"eng","gender":null,"type":null,"text":"of course"}]},{"partOfSpeech":["prt"],"appliesToKanji":["*"],"appliesToKana":["*"],"related":[],"antonym":[],"field":[],"dialect":[],"misc":[],"info":["abbr. of という"],"languageSource":[],"gloss":[{"lang":"eng","gender":null,"type":null,"text":"the said ..."},{"lang":"eng","gender":null,"type":null,"text":"said ..."}]},{"partOfSpeech":["prt"],"appliesToKanji":["*"],"appliesToKana":["*"],"related":[],"antonym":[],"field":[],"dialect":[],"misc":[],"info":["abbr. of と言っている"],"languageSource":[],"gloss":[{"lang":"eng","gender":null,"type":null,"text":"says that ..."}]},{"partOfSpeech":["prt"],"appliesToKanji":["*"],"appliesToKana":["*"],"related":[],"antonym":[],"field":[],"dialect":[],"misc":[],"info":["abbr. of と聞いている"],"languageSource":[],"gloss":[{"lang":"eng","gender":null,"type":null,"text":"I hear that ..."}]},{"partOfSpeech":["prt"],"appliesToKanji":["*"],"appliesToKana":["*"],"related":[],"antonym":[],"field":[],"dialect":[],"misc":[],"info":["abbr. of とは, というのは"],"languageSource":[],"gloss":[{"lang":"eng","gender":null,"type":null,"text":"as for the term ..."}]},{"partOfSpeech":["prt"],"appliesToKanji":["*"],"appliesToKana":["*"],"related":[],"antonym":[],"field":[],"dialect":[],"misc":[],"info":["equiv. of は topic marker"],"languageSource":[],"gloss":[{"lang":"eng","gender":null,"type":null,"text":"as for ..."}]}]},
+        // Assert it matches the definition "casual quoting particle"
+        assertEquals("casual quoting particle", tteEntry!!.englishDefinitions.first().info.first())
+
+        // Assert it matches the definition "you said"
+        assertEquals("you said", tteEntry.englishDefinitions.first().text.first())
     }
 }

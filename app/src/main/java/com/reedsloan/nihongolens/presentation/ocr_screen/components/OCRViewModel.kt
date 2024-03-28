@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
+import com.reedsloan.nihongolens.MainActivity
 
 
 @HiltViewModel
@@ -60,8 +61,8 @@ class OCRViewModel @Inject constructor(
     }
 
     init {
-        dictionaryJob.start()
         tokenizerJob.start()
+//        dictionaryJob.start()
     }
 
     fun onEvent(event: OCREvent) {
@@ -73,22 +74,37 @@ class OCRViewModel @Inject constructor(
                         override fun onCaptureSuccess(image: ImageProxy) {
                             super.onCaptureSuccess(image)
 
+                            // Generate a matrix to rotate the image based on the image's rotation
                             val matrix = Matrix().apply {
                                 postRotate(image.imageInfo.rotationDegrees.toFloat())
                             }
+
                             val rotatedBitmap = Bitmap.createBitmap(
                                 image.toBitmap(), 0, 0, image.width, image.height, matrix, true
                             )
 
                             runTextRecognition(rotatedBitmap)
-                            onPhotoTaken(rotatedBitmap)
+
+                            // We must call this so the UI can display the image
+                            updatePreviewPhoto(rotatedBitmap)
                         }
 
                         override fun onError(exception: ImageCaptureException) {
                             super.onError(exception)
                             Log.e("OCRViewModel", "Could not take photo", exception)
+                            // update the state with the error message
+                            _state.update { it.copy(imageCaptureError = exception.message) }
                         }
                     })
+            }
+
+            is OCREvent.ScanImage -> {
+                _state.update { it.copy(isScanning = true, ocrViewMode = OCRViewMode.Result) }
+
+                runTextRecognition(event.image)
+
+                // We must call this so the UI can display the image
+                updatePreviewPhoto(event.image)
             }
 
             is OCREvent.StopScan -> {
@@ -108,7 +124,6 @@ class OCRViewModel @Inject constructor(
             }
 
             is OCREvent.OnClickWord -> {
-                val word = event.word
 
             }
 
@@ -116,6 +131,8 @@ class OCRViewModel @Inject constructor(
                 when (state.value.ocrViewMode) {
                     OCRViewMode.Result -> {
                         _state.update { it.copy(ocrViewMode = OCRViewMode.Camera) }
+                        // Clear the image and results
+                        _state.update { it.copy(image = null, ocrResults = null) }
                     }
 
                     is OCRViewMode.InspectResult -> {
@@ -130,25 +147,43 @@ class OCRViewModel @Inject constructor(
         }
     }
 
-    private suspend fun getJapaneseEnglishEntries(strings: List<String>): List<JapaneseEnglishEntry> {
+    private suspend fun getJapaneseEnglishEntries(strings: List<String>): Map<String, List<JapaneseEnglishEntry>> {
         dictionaryJob.join()
 
-        return strings.mapNotNull { string ->
-            val match = dictionary.entries.filter { entry ->
-                entry.word.any { it.text == string }
-            }.sortedBy {
-                it.word.first().common
+        return strings.associateWith { string ->
+            val results = emptyList<JapaneseEnglishEntry>().toMutableList()
+            // Add all entries that match the string at the beginning so they are shown first
+            dictionary.entries.forEach { entry ->
+                if (entry.word.any { it.text == string }) {
+                    results.add(entry)
+                }
             }
 
-            if (match.isNotEmpty()) {
-                match.first()
-            } else {
-                null
+            // If no entries are found for the word, search for kana-only words as well
+            if(results.isEmpty()) {
+                // also search the kana only words
+                dictionary.entries.forEach { entry ->
+                    if (entry.wordKanaOnly.any { it.text == string }) {
+                        results.add(entry)
+                    }
+                }
             }
+
+            // Get all entries that contain the string anywhere in the word,
+            // perhaps less relevant so they are shown last
+            // Not sure if this is actually necessary TBH will have to test
+//            dictionary.entries.forEach {  entry ->
+//                if (entry.word.any { it.text.contains(string) }) {
+//                    results.add(entry)
+//                }
+//            }
+
+            Log.d("OCRViewModel", "Results for $string: $results")
+            results
         }
     }
 
-    private fun onPhotoTaken(image: Bitmap) {
+    private fun updatePreviewPhoto(image: Bitmap) {
         _state.update { it.copy(image = image) }
     }
 

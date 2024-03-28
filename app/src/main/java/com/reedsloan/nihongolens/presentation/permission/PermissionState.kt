@@ -4,6 +4,5 @@ import com.reedsloan.nihongolens.domain.model.AppConfiguration
 
 data class PermissionState(
     val permissionRequestQueue: List<PermissionRequest> = emptyList(),
-    val previouslyRequestedPermissions: List<String> = emptyList(),
     val appConfiguration: AppConfiguration = AppConfiguration()
 )

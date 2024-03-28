@@ -52,7 +52,7 @@ class MainActivity : ComponentActivity() {
 
                     // OCR ViewModel
                     val ocrViewModel = hiltViewModel<OCRViewModel>()
-                    val ocrState by ocrViewModel.state.collectAsState()
+                    val ocrScreenState by ocrViewModel.state.collectAsState()
 
                     // permission launcher
                     val multiplePermissionsLauncher = rememberLauncherForActivityResult(
@@ -117,7 +117,7 @@ class MainActivity : ComponentActivity() {
                                 route = ScreenRoute.OCRScreen.route
                             ) {
                                 OCRScreen(
-                                    ocrScreenState = ocrState,
+                                    ocrScreenState = ocrScreenState,
                                     onOCREvent = { ocrViewModel.onEvent(it) },
                                     onPermissionEvent = { permissionViewModel.onEvent(it) },
                                     cameraController = cameraController,

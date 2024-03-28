@@ -12,7 +12,7 @@ class UpdateAppConfiguration(
     )
 
     private fun AppConfiguration.toAppConfigurationEntity() = AppConfigurationEntity(
-        previouslyDeniedPermissions = this.previouslyDeniedPermissions,
+        previouslyRequestedPermissions = this.previouslyRequestedPermissions,
         hasSeenOnboarding = this.hasSeenOnboarding
     )
 }

@@ -5,13 +5,14 @@ import android.graphics.Bitmap
 data class OCRScreenState(
     val ocrResults: List<OCRResult>? = null,
     val isScanning: Boolean = false,
-    val image: Bitmap? = null,
+    var image: Bitmap? = null,
     val error: String? = null,
     val textStructure: TextStructure = TextStructure.BLOCK,
     val ocrViewMode: OCRViewMode = OCRViewMode.Camera,
     val selectedOcrResultId: Int? = null,
     val dictionaryIsLoading: Boolean = false,
     val tokenizerLoading: Boolean = false,
+    val imageCaptureError: String? = null,
 )
 
 enum class TextStructure {

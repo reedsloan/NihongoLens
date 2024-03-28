@@ -1,1 +1,2 @@
 jmdict-eng-3.5.0.json filter=lfs diff=lfs merge=lfs -text
+jmdict-eng-common-3.5.0.json filter=lfs diff=lfs merge=lfs -text

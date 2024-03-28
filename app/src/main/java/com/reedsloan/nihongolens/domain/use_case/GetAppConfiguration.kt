@@ -10,7 +10,7 @@ class GetAppConfiguration(
     suspend operator fun invoke() = repository.getAppConfiguration().toAppConfiguration()
 
     private fun AppConfigurationEntity.toAppConfiguration() = AppConfiguration(
-        previouslyDeniedPermissions = this.previouslyDeniedPermissions,
+        previouslyRequestedPermissions = this.previouslyRequestedPermissions,
         hasSeenOnboarding = this.hasSeenOnboarding
     )
 }

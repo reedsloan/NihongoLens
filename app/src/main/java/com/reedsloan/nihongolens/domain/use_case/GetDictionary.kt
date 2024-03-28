@@ -46,8 +46,8 @@ class GetDictionary(
             }
 
             JapaneseEnglishEntry(
-                word = word,
-                wordKanaOnly = kanaOnly,
+                word = word.sortedBy { it.common },
+                wordKanaOnly = kanaOnly.sortedBy { it.common },
                 englishDefinitions = englishDefinition
             )
         }

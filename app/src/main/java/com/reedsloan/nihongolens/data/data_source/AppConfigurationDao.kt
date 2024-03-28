@@ -10,6 +10,6 @@ interface AppConfigurationDao {
     @Query("SELECT * FROM app_configuration WHERE id = 0")
     suspend fun getAppData(): AppConfigurationEntity
 
-    @Query("INSERT OR REPLACE INTO app_configuration (id, previouslyDeniedPermissions) VALUES (0, :appData)")
+    @Query("INSERT OR REPLACE INTO app_configuration (id, previouslyRequestedPermissions) VALUES (0, :appData)")
     suspend fun updateAppData(appData: AppConfigurationEntity)
 }
