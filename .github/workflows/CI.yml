@@ -69,6 +69,9 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           cache: gradle
 
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
       - name: Gradle cache
         uses: gradle/gradle-build-action@v2
 
