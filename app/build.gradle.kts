@@ -66,7 +66,7 @@ android {
 
 dependencies {
     val roomVersion = "2.6.1"
-    val hiltVersion = "2.51"
+    val hiltVersion = "2.51.1"
     val materialVersion = "1.6.4"
     val lifecycleVersion = "2.7.0"
 
