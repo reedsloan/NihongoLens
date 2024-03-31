@@ -14,7 +14,7 @@ import java.io.File
 import java.io.InputStream
 
 class FakeJMDictRepository : JMDictRepository {
-    private val jmdictJsonFile = File(".\\src\\main\\assets\\jmdict-eng-common-3.5.0.json")
+    private val jmdictJsonFile = File("./src/main/assets/jmdict-eng-common-3.5.0.json")
     private var jmdict: JMDict? = null
 
     private suspend fun parseToJMDict(inputStream: InputStream): JMDict {
