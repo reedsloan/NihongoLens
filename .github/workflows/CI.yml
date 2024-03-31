@@ -28,6 +28,10 @@ jobs:
       - name: Build app
         run: ./gradlew assembleDebug assembleAndroidTest
 
+      # Used in debugging the workflow
+      - name: List files in directory
+        run: ls -R app/build/outputs/apk/
+
       - name: Run tests
         uses: emulator-wtf/run-tests@v0
         with:
