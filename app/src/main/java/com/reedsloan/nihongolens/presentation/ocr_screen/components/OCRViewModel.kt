@@ -25,8 +25,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
-import java.io.FileOutputStream
 import javax.inject.Inject
 
 
@@ -40,9 +38,15 @@ class OCRViewModel @Inject constructor(
     private lateinit var dictionary: JapaneseEnglishDictionary
     private val dictionaryJob = viewModelScope.launch {
         _state.update { it.copy(dictionaryIsLoading = true) }
-        dictionary = getDictionary()
-        _state.update { it.copy(dictionaryIsLoading = false) }
+        withContext(Dispatchers.IO) {
+            dictionary = getDictionary()
+        }.let {
+            _state.update { it.copy(dictionaryIsLoading = false) }
+        }
     }
+    private val recognizer = TextRecognition.getClient(
+        JapaneseTextRecognizerOptions.Builder().build()
+    )
 
     private lateinit var tokenizer: Tokenizer
 
@@ -51,12 +55,12 @@ class OCRViewModel @Inject constructor(
 
         // This withContext block is a coroutine context switcher, it switches to the IO dispatcher
         withContext(Dispatchers.IO) {
-            Tokenizer()
-        }.let { result ->
-            tokenizer = result
+            tokenizer = Tokenizer()
+        }.let {
             _state.update { it.copy(tokenizerLoading = false) }
         }
     }
+
     init {
         tokenizerJob.start()
         dictionaryJob.start()
@@ -79,11 +83,13 @@ class OCRViewModel @Inject constructor(
                             val rotatedBitmap = Bitmap.createBitmap(
                                 image.toBitmap(), 0, 0, image.width, image.height, matrix, true
                             )
+                            image.close()
 
                             runTextRecognition(rotatedBitmap)
 
                             // We must call this so the UI can display the image
                             updatePreviewPhoto(rotatedBitmap)
+
                         }
 
                         override fun onError(exception: ImageCaptureException) {
@@ -153,23 +159,19 @@ class OCRViewModel @Inject constructor(
             // Add all entries that match the string at the beginning so they are shown first
             dictionary.entries.forEach { entry ->
                 if (entry.word.any { it.text == token.baseForm }) {
-                    Log.d("OCRViewModel", "Found baseForm entry for ${token.baseForm}")
                     results.add(entry)
                 } else if (entry.word.any { it.text == token.surface }) {
-                    Log.d("OCRViewModel", "Found surface entry for ${token.surface}")
                     results.add(entry)
                 }
             }
 
             // If no entries are found for the word, search for kana-only words as well
-            if(results.isEmpty()) {
+            if (results.isEmpty()) {
                 // also search the kana only words
                 dictionary.entries.forEach { entry ->
                     if (entry.wordKanaOnly.any { it.text == token.baseForm }) {
-                        Log.d("OCRViewModel", "Found baseForm entry for ${token.baseForm}")
                         results.add(entry)
                     } else if (entry.wordKanaOnly.any { it.text == token.surface }) {
-                        Log.d("OCRViewModel", "Found surface entry for ${token.surface}")
                         results.add(entry)
                     }
                 }
@@ -185,9 +187,6 @@ class OCRViewModel @Inject constructor(
 
     private fun runTextRecognition(bitmap: Bitmap) {
         val image = InputImage.fromBitmap(bitmap, 0)
-        val recognizer = TextRecognition.getClient(
-            JapaneseTextRecognizerOptions.Builder().build()
-        )
 
         recognizer.process(image).addOnSuccessListener { texts ->
             viewModelScope.launch {
@@ -195,25 +194,53 @@ class OCRViewModel @Inject constructor(
                     ocrState.copy(
                         isScanning = false,
                         ocrResults =
-                        texts.textBlocks.flatMap { it.lines }.mapIndexed { index, line ->
-                            val tokenizedText = tokenizeText(line.text)
+                        texts.textBlocks.flatMap {
+                            it.lines
+                        }.mapIndexed { index, line ->
                             OCRResult(
                                 text = line.text,
-                                topLeft = line.cornerPoints?.get(0)?.let { Point(it.x, it.y) }!!,
+                                topLeft = line.cornerPoints?.get(0)
+                                    ?.let { Point(it.x, it.y) }!!,
+                                bottomRight = line.cornerPoints?.get(2)
+                                    ?.let { Point(it.x, it.y) }!!,
                                 confidence = line.confidence,
-                                tokenizedText = tokenizedText,
+                                tokenizedText = emptyList(),
                                 angle = line.angle,
                                 id = index,
-                                japaneseEnglishEntries = getJapaneseEnglishEntries(tokenizedText.map { it })
+                                tokenToDefinitionMap = emptyMap(),
                             )
                         }
                     )
+                }
+
+                // Switch to the IO dispatcher to tokenize the text and get the dictionary entries so we don't block the main thread
+                withContext(Dispatchers.IO) {
+                    // Process after the OCR results are updated so we can update the tokenized text
+                    texts.textBlocks.flatMap { it.lines }.mapIndexed { index, line ->
+                        val tokenizedText = tokenizeText(line.text)
+                        val tokenToDefinitionMap =
+                            getJapaneseEnglishEntries(tokenizedText.map { it })
+
+                        _state.update { ocrState ->
+                            ocrState.copy(
+                                ocrResults = ocrState.ocrResults?.mapIndexed { i, ocrResult ->
+                                    if (i == index) {
+                                        ocrResult.copy(
+                                            tokenizedText = tokenizedText,
+                                            tokenToDefinitionMap = tokenToDefinitionMap
+                                        )
+                                    } else {
+                                        ocrResult
+                                    }
+                                }
+                            )
+                        }
+                    }
                 }
             }
         }.addOnFailureListener { e -> // Task failed with an exception
             _state.update { it.copy(isScanning = false, error = e.message) }
             e.printStackTrace()
-            recognizer.close()
         }
     }
 
@@ -222,35 +249,6 @@ class OCRViewModel @Inject constructor(
         tokenizerJob.join()
 
         return tokenizer.tokenize(text)
-    }
-
-    private fun getMecabIpadic(): File {
-        val mecabFolderName = "mecab-ipadic-2.7.0-20070801"
-        // check if its in the cache else copy it from assets
-        val cacheDir = app.cacheDir
-        val cacheFile = File(cacheDir, "/$mecabFolderName")
-
-        if (!cacheFile.exists()) {
-            Log.d("OCRViewModel", "$mecabFolderName does not exist in cache")
-            cacheFile.mkdir()
-            copyAssetsFolder(mecabFolderName, cacheFile)
-        }
-
-        Log.d("OCRViewModel", "$mecabFolderName exists in cache")
-        return cacheFile
-    }
-
-    @Suppress("SameParameterValue") // I'll probably need to change this later
-    private fun copyAssetsFolder(folderName: String, targetDir: File) {
-        app.assets.list(folderName)?.forEach { fileName ->
-            val inputStream = app.assets.open("$folderName/$fileName")
-            val outputFile = File(targetDir, fileName)
-            inputStream.use { input ->
-                FileOutputStream(outputFile).use { output ->
-                    input.copyTo(output)
-                }
-            }
-        }
     }
 
 }

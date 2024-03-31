@@ -9,6 +9,7 @@ import androidx.camera.view.LifecycleCameraController
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,6 +24,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Cameraswitch
@@ -37,8 +39,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -59,6 +63,7 @@ import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.navigation.NavController
 import com.atilika.kuromoji.ipadic.Token
 import com.reedsloan.nihongolens.domain.model.JapaneseEnglishEntry
+import com.reedsloan.nihongolens.presentation.components.AutoResizedText
 import com.reedsloan.nihongolens.presentation.permission.PermissionEvent
 import com.reedsloan.nihongolens.presentation.permission.PermissionRequest
 
@@ -188,6 +193,7 @@ fun OCRScreen(
                 when (ocrScreenState.ocrViewMode) {
                     OCRViewMode.Camera -> {
                         IconButton(
+                            enabled = !ocrScreenState.isScanning,
                             onClick = {
                                 onOCREvent(OCREvent.ClickCamera(cameraController, displayMetrics))
                             }, modifier = Modifier.constrainAs(bottomRightButton) {
@@ -248,66 +254,115 @@ fun RecognizedText(
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
 
                 }
+                SelectionContainer {
 
-                ocrScreenState.ocrResults?.forEach { ocrResult ->
-                    val topLeft = ocrResult.topLeft
 
-                    val offsetFromOriginX = topLeft.x - imageOrigin.x
-                    val offsetFromOriginY = topLeft.y - imageOrigin.y
+                    ocrScreenState.ocrResults?.forEach { ocrResult ->
+                        val topLeft = ocrResult.topLeft
+                        val bottomRight = ocrResult.bottomRight
 
-                    val offsetFromOriginXScaled =
-                        offsetFromOriginX * (displayMetrics.widthPixels.toFloat() / image.width.toFloat())
-                    val offsetFromOriginYScaled =
-                        offsetFromOriginY * (displayMetrics.heightPixels.toFloat() / image.height.toFloat())
+                        val offsetFromOriginXTopLeft = topLeft.x - imageOrigin.x
+                        val offsetFromOriginYTopLeft = topLeft.y - imageOrigin.y
+                        val offsetFromOriginX2BottomRight = bottomRight.x - imageOrigin.x
+                        val offsetFromOriginY2BottomRight = bottomRight.y - imageOrigin.y
 
-                    val translationXAdjusted =
-                        deviceOrigin.x + offsetFromOriginXScaled / if (aspectRatio > screenAspectRatio) (screenAspectRatio / aspectRatio) else 1f
-                    val translationYAdjusted =
-                        deviceOrigin.y + offsetFromOriginYScaled * if (aspectRatio > screenAspectRatio) 1f else (aspectRatio / screenAspectRatio)
+                        val offsetFromOriginXScaledTopLeft =
+                            offsetFromOriginXTopLeft * (displayMetrics.widthPixels.toFloat() / image.width.toFloat())
+                        val offsetFromOriginYScaledTopLeft =
+                            offsetFromOriginYTopLeft * (displayMetrics.heightPixels.toFloat() / image.height.toFloat())
 
-                    Box(
-                        Modifier
-                            .fillMaxSize()
-                            .drawWithContent {
-                                // draw a dot at the top left corner of the bounding box
-                                drawCircle(
-                                    color = Color.Red, radius = 10f, center = Offset(
-                                        translationXAdjusted, translationYAdjusted
+                        val offsetFromOriginXScaledBottomRight =
+                            offsetFromOriginX2BottomRight * (displayMetrics.widthPixels.toFloat() / image.width.toFloat())
+                        val offsetFromOriginYScaledBottomRight =
+                            offsetFromOriginY2BottomRight * (displayMetrics.heightPixels.toFloat() / image.height.toFloat())
+
+                        val translationXAdjusted =
+                            deviceOrigin.x + offsetFromOriginXScaledTopLeft / if (aspectRatio > screenAspectRatio) (screenAspectRatio / aspectRatio) else 1f
+                        val translationYAdjusted =
+                            deviceOrigin.y + offsetFromOriginYScaledTopLeft * if (aspectRatio > screenAspectRatio) 1f else (aspectRatio / screenAspectRatio)
+                        val bottomRightTranslationXAdjusted =
+                            deviceOrigin.x + offsetFromOriginXScaledBottomRight / if (aspectRatio > screenAspectRatio) (screenAspectRatio / aspectRatio) else 1f
+                        val bottomRightTranslationYAdjusted =
+                            deviceOrigin.y + offsetFromOriginYScaledBottomRight * if (aspectRatio > screenAspectRatio) 1f else (aspectRatio / screenAspectRatio)
+                        Box(
+                            Modifier
+                                .fillMaxSize()
+                                .drawWithContent {
+                                    // draw a dot at the top left corner of the bounding box
+                                    drawCircle(
+                                        color = Color.Red, radius = 10f, center = Offset(
+                                            translationXAdjusted, translationYAdjusted
+                                        )
                                     )
-                                )
 
-                                // draw a big blue circle at the center of the image
-                                drawCircle(
-                                    color = Color.Blue, radius = 30f, center = Offset(
-                                        imageOrigin.x * (displayMetrics.widthPixels.toFloat() / image.width.toFloat()),
-                                        imageOrigin.y * (displayMetrics.heightPixels.toFloat() / image.height.toFloat())
+                                    // draw a blue dot at the bottom right corner of the bounding box
+                                    drawCircle(
+                                        color = Color.Blue, radius = 10f, center = Offset(
+                                            bottomRightTranslationXAdjusted,
+                                            bottomRightTranslationYAdjusted
+                                        )
                                     )
-                                )
 
-                                // draw a big green circle at the center of the device
-                                drawCircle(
-                                    color = Color.Green, radius = 20f, center = Offset(
-                                        deviceOrigin.x, deviceOrigin.y
+                                    // draw a big blue circle at the center of the image
+                                    drawCircle(
+                                        color = Color.Blue, radius = 30f, center = Offset(
+                                            imageOrigin.x * (displayMetrics.widthPixels.toFloat() / image.width.toFloat()),
+                                            imageOrigin.y * (displayMetrics.heightPixels.toFloat() / image.height.toFloat())
+                                        )
                                     )
-                                )
-                            }) {}
-                    Text(
-                        text = ocrResult.text,
-                        style = TextStyle(fontSize = 20.sp),
-                        modifier = Modifier
-                            .testTag("OCRText")
-                            .graphicsLayer {
-                                translationX = translationXAdjusted
-                                translationY = translationYAdjusted
-                                rotationZ = ocrResult.angle
-                            }
-                            .background(Color.White, shape = MaterialTheme.shapes.extraSmall)
-                            .clickable {
-                                onOCREvent(OCREvent.OnClickLine(ocrResult.id))
-                            },
-                    )
+
+                                    // draw a big green circle at the center of the device
+                                    drawCircle(
+                                        color = Color.Green, radius = 20f, center = Offset(
+                                            deviceOrigin.x, deviceOrigin.y
+                                        )
+                                    )
+                                }) {}
+
+                        val width by rememberSaveable {
+                            mutableFloatStateOf(
+                                bottomRightTranslationXAdjusted - translationXAdjusted
+                            )
+                        }
+                        val height by remember {
+                            mutableFloatStateOf(
+                                bottomRightTranslationYAdjusted - translationYAdjusted
+                            )
+                        }
+
+                        Box(
+                            contentAlignment = Alignment.Center
+                        ) {
+                            // The text scanned from the image in the OCR result
+                            AutoResizedText(
+                                text = ocrResult.text,
+                                style = TextStyle(
+                                    fontSize = 20.sp,
+                                    color = Color.Black,
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                modifier = Modifier
+                                    .testTag("OCRText")
+                                    .graphicsLayer {
+                                        translationX = translationXAdjusted
+                                        translationY = translationYAdjusted
+                                        rotationZ = ocrResult.angle
+                                    }
+                                    .width((width / displayMetrics.density).dp)
+//                                    .height((height * 1.2F / displayMetrics.density).dp)
+                                    .background(
+                                        Color.White.copy(alpha = 0.8F),
+                                        shape = MaterialTheme.shapes.extraSmall
+                                    )
+                                    .clickable {
+                                        onOCREvent(OCREvent.OnClickLine(ocrResult.id))
+                                    }
+                            )
+                        }
+                    }
                 }
             }
+
 
             is OCRViewMode.InspectResult -> {
                 if (ocrScreenState.ocrResults == null) return
@@ -315,8 +370,9 @@ fun RecognizedText(
 
                 TextLookup(
                     tokenizedText = ocrResult.tokenizedText,
-                    japaneseEnglishEntries = ocrResult.japaneseEnglishEntries,
-                    loading = ocrScreenState.dictionaryIsLoading
+                    japaneseEnglishEntries = ocrResult.tokenToDefinitionMap,
+                    loading = ocrScreenState.dictionaryIsLoading || ocrScreenState.tokenizerLoading || ocrScreenState.isScanning,
+                    previewText = ocrResult.text
                 )
             }
         }
@@ -329,55 +385,106 @@ fun RecognizedText(
 fun TextLookup(
     loading: Boolean = false,
     japaneseEnglishEntries: Map<Token, List<JapaneseEnglishEntry>> = emptyMap(),
-    tokenizedText: List<Token> = emptyList()
+    tokenizedText: List<Token> = emptyList(),
+    previewText: String = ""
 ) {
     var showDefinitionForToken: Token? by remember { mutableStateOf(null) }
-
-
+    val interactionSource = remember { MutableInteractionSource() }
     Box(
         Modifier
             .fillMaxSize()
             .background(
                 MaterialTheme.colorScheme.surface, shape = MaterialTheme.shapes.extraSmall
             )
-            .clickable { showDefinitionForToken = null }
-            .padding(16.dp),
+            .padding(16.dp)
+            .clickable(indication = null, interactionSource = interactionSource) {
+                showDefinitionForToken = null
+            },
         contentAlignment = Alignment.Center) {
+
         FlowRow {
-
-            tokenizedText.forEach { featuresToken ->
-
-                Text(text = featuresToken.surface, style = TextStyle(
-                    fontSize = 36.sp,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                ), modifier = Modifier
-                    // border only on bottom
-                    .padding(end = 6.dp)
-                    .drawBehind {
-                        val strokeWidth = 2.dp.toPx()
-                        val distanceBelowText = 0.dp.toPx()
-                        val y = (size.height + distanceBelowText - strokeWidth / 2)
-
-                        drawLine(
-                            Color.White,
-                            Offset(0f, y),
-                            Offset(size.width, y),
-                            strokeWidth
-                        )
-                    }
-                    .clickable {
+            if (tokenizedText.isNotEmpty()) {
+                tokenizedText.forEach { featuresToken ->
+                    SelectionContainer {
+                    ExtractedText(featuresToken) {
                         // be careful because we have to lookup the root form of the word
-                        Log.d("TextLookup", "conjugationForm: ${featuresToken.conjugationForm}")
-                        Log.d("TextLookup", "conjugationType: ${featuresToken.conjugationType}")
+                        Log.d(
+                            "TextLookup",
+                            "conjugationForm: ${featuresToken.conjugationForm}"
+                        )
+                        Log.d(
+                            "TextLookup",
+                            "conjugationType: ${featuresToken.conjugationType}"
+                        )
                         showDefinitionForToken = featuresToken
-                    })
+                    }
+                }
+                }
+            } else {
+                Text(
+                    text = previewText,
+                    style = TextStyle(
+                        fontSize = 36.sp,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                    )
+                )
+
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // show loading indicator indicating that the text is being processed
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Text is being processed...",
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            color = Color.LightGray
+                        )
+                    )
+                }
             }
         }
     }
 
-    // Definition
-    WordDefinition(showDefinitionForToken, loading, japaneseEnglishEntries)
+    showDefinitionForToken?.let {
+        WordDefinition(showDefinitionForToken, loading, japaneseEnglishEntries)
+    }
+}
+
+@Composable
+private fun ExtractedText(
+    featuresToken: Token,
+    onClick: () -> Unit
+) {
+    Text(text = featuresToken.surface, style = TextStyle(
+        fontSize = 36.sp,
+        color = Color.White,
+        fontWeight = FontWeight.Bold,
+    ), modifier = Modifier
+        // border only on bottom
+        .padding(end = 6.dp)
+        .drawBehind {
+            val strokeWidth = 2.dp.toPx()
+            val distanceBelowText = 0.dp.toPx()
+            val y = (size.height + distanceBelowText - strokeWidth / 2)
+
+            drawLine(
+                Color.White,
+                Offset(0f, y),
+                Offset(size.width, y),
+                strokeWidth
+            )
+        }
+        .clickable {
+            onClick()
+        })
 }
 
 @Composable
@@ -386,110 +493,114 @@ private fun WordDefinition(
     loading: Boolean,
     japaneseEnglishEntries: Map<Token, List<JapaneseEnglishEntry>>
 ) {
-    token?.let {
-        Box(
-            contentAlignment = Alignment.Center
+    Box(
+        contentAlignment = Alignment.Center
+    ) {
+        ElevatedCard(
+            modifier = Modifier
+                .height(350.dp)
+                .fillMaxWidth()
+                .padding(16.dp)
         ) {
-            ElevatedCard(
-                modifier = Modifier
-                    .height(350.dp)
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            ) {
-                if (loading) {
-                    Column(
-                        Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
+            if (loading || token == null) {
+                Column(
+                    Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        "Loading definitions...",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    CircularProgressIndicator()
+                }
+            } else {
+                LazyColumn(
+                    Modifier.padding(8.dp)
+                ) {
+                    item {
+                        // text of dictionary for selected word
                         Text(
-                            "Loading definitions...",
-                            style = MaterialTheme.typography.titleMedium
+                            text = "Definition for ${token.baseForm ?: token.surface}",
+                            style = MaterialTheme.typography.headlineLarge
                         )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        CircularProgressIndicator()
-                    }
-                } else {
-                    LazyColumn(
-                        Modifier.padding(8.dp)
-                    ) {
-                        item {
-                            // text of dictionary for selected word
-                            Text(
-                                text = "Definition for ${token.baseForm ?: token.surface}",
-                                style = MaterialTheme.typography.headlineLarge
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            // sortedByDescending is stable so it will preserve the initial order
-                            // if the sort score is the same for multiple entries
-                            // This is good since there are already some preprocessing done in the dictionary
-                            japaneseEnglishEntries[token]?.sortedByDescending {
-                                // This is a simple heuristic to sort the definitions by suffixes first
-                                var sortScore = 0
+                        Spacer(modifier = Modifier.height(8.dp))
 
-                                it.englishDefinitions.forEach { definition ->
-                                    if (definition.partOfSpeech.contains("Suffix")) {
-                                        sortScore += 1
-                                    }
-                                }
-
-                                sortScore
-
-                            }?.forEach { entry ->
-                                Divider(Modifier.padding(vertical = 8.dp))
-                                Row {
-                                    val kanji = entry.word
-                                    val kana = entry.wordKanaOnly
-
-                                    Text(
-                                        text = kanji.joinToString(", ") { it.text },
-                                        style = MaterialTheme.typography.titleLarge,
-                                    )
-
-                                    // dot separator
-                                    if (kanji.isNotEmpty() && kana.isNotEmpty()) {
-                                        Text(
-                                            text = "・",
-                                            style = MaterialTheme.typography.titleLarge,
-                                        )
-                                    }
-
-                                    Text(
-                                        text = kana.joinToString(", ") { it.text },
-                                        style = MaterialTheme.typography.titleLarge,
-                                    )
-                                }
-
-                                entry.englishDefinitions.forEachIndexed { index, definition ->
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(
-                                        text = definition.partOfSpeech.joinToString(", "),
-                                        style = MaterialTheme.typography.bodyMedium.copy(
-                                            color = Color.Gray
-                                        ),
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-
-                                    Row {
-                                        Text(
-                                            text = "${index + 1}. ",
-                                            style = MaterialTheme.typography.bodyLarge.copy(
-                                                color = Color.Gray
-                                            )
-                                        )
-
-                                        Text(
-                                            text = definition.text.joinToString { it },
-                                            style = MaterialTheme.typography.bodyLarge
-                                        )
-                                    }
+                        val sortedEntries = japaneseEnglishEntries[token]?.sortedByDescending {
+                            // This is a simple heuristic to sort the definitions by suffixes first
+                            var sortScore = 0
+                            it.englishDefinitions.forEach { definition ->
+                                if (definition.partOfSpeech.contains("Suffix")) {
+                                    sortScore += 1
                                 }
                             }
+                            sortScore
+                        } ?: emptyList()
+
+                        sortedEntries.forEach { entry ->
+                            Divider(Modifier.padding(vertical = 8.dp))
+                            KanjiAndKanaForWord(entry)
+                            JapaneseWithEnglishDefinitions(entry)
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun KanjiAndKanaForWord(entry: JapaneseEnglishEntry) {
+    Row {
+        val kanji = entry.word
+        val kana = entry.wordKanaOnly
+
+        Text(
+            text = kanji.joinToString(", ") { it.text },
+            style = MaterialTheme.typography.titleLarge,
+        )
+
+        // dot separator
+        if (kanji.isNotEmpty() && kana.isNotEmpty()) {
+            Text(
+                text = "・",
+                style = MaterialTheme.typography.titleLarge,
+            )
+        }
+
+        Text(
+            text = kana.joinToString(", ") { it.text },
+            style = MaterialTheme.typography.titleLarge,
+        )
+    }
+}
+
+@Composable
+private fun JapaneseWithEnglishDefinitions(entry: JapaneseEnglishEntry) {
+    entry.englishDefinitions.forEachIndexed { index, definition ->
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = definition.partOfSpeech.joinToString(", "),
+            style = MaterialTheme.typography.bodyMedium.copy(
+                color = Color.Gray
+            ),
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Row {
+            Text(
+                text = "${index + 1}. ",
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    color = Color.Gray
+                )
+            )
+
+            Text(
+                text = definition.text.joinToString { it },
+                style = MaterialTheme.typography.bodyLarge
+            )
         }
     }
 }

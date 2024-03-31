@@ -9,7 +9,8 @@ data class OCRResult(
     val tokenizedText: List<Token> = emptyList(),
     val confidence: Float,
     val topLeft: Point,
+    val bottomRight: Point,
     val angle: Float,
     val id: Int,
-    val japaneseEnglishEntries: Map<Token, List<JapaneseEnglishEntry>> = emptyMap(),
+    val tokenToDefinitionMap: Map<Token, List<JapaneseEnglishEntry>> = emptyMap(),
 )
