@@ -145,7 +145,7 @@ dependencies {
 //    implementation("com.github.wanasit.kotori:kotori:1.0.0")
 
     // Google Fonts API
-    implementation("androidx.compose.ui:ui-text-google-fonts:1.6.3")
+    implementation("androidx.compose.ui:ui-text-google-fonts:1.6.4")
 
     // Moshi
     ksp("com.squareup.moshi:moshi-kotlin-codegen:1.15.0")
