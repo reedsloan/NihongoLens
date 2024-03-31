@@ -11,10 +11,10 @@ class AppConfigurationRepositoryImpl @Inject constructor(
     private val dao: AppConfigurationDao
 ) : AppConfigurationRepository {
     override suspend fun getAppConfiguration(): AppConfigurationEntity {
-        return dao.getAppData()
+        return dao.getAppConfiguration()
     }
 
     override suspend fun updateAppConfiguration(appConfiguration: AppConfigurationEntity) {
-        dao.updateAppData(appConfiguration)
+        dao.updateAppConfiguration(appConfiguration)
     }
 }

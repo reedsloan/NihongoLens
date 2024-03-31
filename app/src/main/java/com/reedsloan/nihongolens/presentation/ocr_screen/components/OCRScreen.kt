@@ -2,6 +2,7 @@ package com.reedsloan.nihongolens.presentation.ocr_screen.components
 
 import android.app.Activity
 import android.graphics.PointF
+import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.camera.core.CameraSelector
 import androidx.camera.view.LifecycleCameraController
@@ -32,7 +33,6 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -53,16 +53,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.navigation.NavController
-import com.github.wanasit.kotori.optimized.DefaultTermFeatures
+import com.atilika.kuromoji.ipadic.Token
 import com.reedsloan.nihongolens.domain.model.JapaneseEnglishEntry
 import com.reedsloan.nihongolens.presentation.permission.PermissionEvent
 import com.reedsloan.nihongolens.presentation.permission.PermissionRequest
-import com.reedsloan.nihongolens.ui.theme.NihongoLensTheme
 
 @Composable
 fun OCRScreen(
@@ -187,7 +185,7 @@ fun OCRScreen(
                     )
                 }
 
-                when(ocrScreenState.ocrViewMode) {
+                when (ocrScreenState.ocrViewMode) {
                     OCRViewMode.Camera -> {
                         IconButton(
                             onClick = {
@@ -315,10 +313,8 @@ fun RecognizedText(
                 if (ocrScreenState.ocrResults == null) return
                 val ocrResult = ocrScreenState.ocrResults.first { it.id == ocrViewMode.id }
 
-                TextDefinition(
-                    strings = ocrResult.tokenizedText.map {
-                        TextData(it.text, it.features.partOfSpeech)
-                    },
+                TextLookup(
+                    tokenizedText = ocrResult.tokenizedText,
                     japaneseEnglishEntries = ocrResult.japaneseEnglishEntries,
                     loading = ocrScreenState.dictionaryIsLoading
                 )
@@ -329,196 +325,164 @@ fun RecognizedText(
 
 
 @OptIn(ExperimentalLayoutApi::class)
-@Preview(showBackground = true)
 @Composable
-fun TextDefinition(
+fun TextLookup(
     loading: Boolean = false,
-    japaneseEnglishEntries: Map<String, List<JapaneseEnglishEntry>> = emptyMap(),
-    // TODO: Maybe put this in a UI test later :)
-    strings: List<TextData> = listOf(
-        TextData("こんにちは", DefaultTermFeatures.PartOfSpeech.INTERJECTION),
-        TextData("私", DefaultTermFeatures.PartOfSpeech.NOUN),
-        TextData("は", DefaultTermFeatures.PartOfSpeech.PARTICLE),
-        TextData("アメリカ", DefaultTermFeatures.PartOfSpeech.NOUN),
-        TextData("人", DefaultTermFeatures.PartOfSpeech.NOUN),
-        TextData("です", DefaultTermFeatures.PartOfSpeech.VERB),
-        TextData("昨日", DefaultTermFeatures.PartOfSpeech.NOUN),
-        TextData("は", DefaultTermFeatures.PartOfSpeech.PARTICLE),
-        TextData("とても", DefaultTermFeatures.PartOfSpeech.ADVERB),
-        TextData("寒かった", DefaultTermFeatures.PartOfSpeech.ADJECTIVE),
-        TextData("です", DefaultTermFeatures.PartOfSpeech.VERB),
-        TextData("が", DefaultTermFeatures.PartOfSpeech.CONJUNCTION),
-        TextData("、", DefaultTermFeatures.PartOfSpeech.OTHER),
-        TextData("今日", DefaultTermFeatures.PartOfSpeech.NOUN),
-        TextData("は", DefaultTermFeatures.PartOfSpeech.PARTICLE),
-        TextData("晴れ", DefaultTermFeatures.PartOfSpeech.NOUN),
-        TextData("ています", DefaultTermFeatures.PartOfSpeech.VERB),
-        TextData("。", DefaultTermFeatures.PartOfSpeech.OTHER),
-        TextData("明日", DefaultTermFeatures.PartOfSpeech.NOUN),
-        TextData("は", DefaultTermFeatures.PartOfSpeech.PARTICLE),
-        TextData("雨", DefaultTermFeatures.PartOfSpeech.NOUN),
-        TextData("が", DefaultTermFeatures.PartOfSpeech.CONJUNCTION),
-        TextData("降る", DefaultTermFeatures.PartOfSpeech.VERB),
-        TextData("かもしれません", DefaultTermFeatures.PartOfSpeech.VERB)
-    )
+    japaneseEnglishEntries: Map<Token, List<JapaneseEnglishEntry>> = emptyMap(),
+    tokenizedText: List<Token> = emptyList()
 ) {
-    var showDefinitionForWord: String? by remember { mutableStateOf(null) }
+    var showDefinitionForToken: Token? by remember { mutableStateOf(null) }
 
-    NihongoLensTheme {
-        Surface(
-            Modifier.fillMaxSize()
+
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(
+                MaterialTheme.colorScheme.surface, shape = MaterialTheme.shapes.extraSmall
+            )
+            .clickable { showDefinitionForToken = null }
+            .padding(16.dp),
+        contentAlignment = Alignment.Center) {
+        FlowRow {
+
+            tokenizedText.forEach { featuresToken ->
+
+                Text(text = featuresToken.surface, style = TextStyle(
+                    fontSize = 36.sp,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                ), modifier = Modifier
+                    // border only on bottom
+                    .padding(end = 6.dp)
+                    .drawBehind {
+                        val strokeWidth = 2.dp.toPx()
+                        val distanceBelowText = 0.dp.toPx()
+                        val y = (size.height + distanceBelowText - strokeWidth / 2)
+
+                        drawLine(
+                            Color.White,
+                            Offset(0f, y),
+                            Offset(size.width, y),
+                            strokeWidth
+                        )
+                    }
+                    .clickable {
+                        // be careful because we have to lookup the root form of the word
+                        Log.d("TextLookup", "conjugationForm: ${featuresToken.conjugationForm}")
+                        Log.d("TextLookup", "conjugationType: ${featuresToken.conjugationType}")
+                        showDefinitionForToken = featuresToken
+                    })
+            }
+        }
+    }
+
+    // Definition
+    WordDefinition(showDefinitionForToken, loading, japaneseEnglishEntries)
+}
+
+@Composable
+private fun WordDefinition(
+    token: Token?,
+    loading: Boolean,
+    japaneseEnglishEntries: Map<Token, List<JapaneseEnglishEntry>>
+) {
+    token?.let {
+        Box(
+            contentAlignment = Alignment.Center
         ) {
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .background(
-                        MaterialTheme.colorScheme.surface, shape = MaterialTheme.shapes.extraSmall
-                    )
-                    .clickable { showDefinitionForWord = null }
-                    .padding(16.dp),
-                contentAlignment = Alignment.Center) {
-                FlowRow {
-                    strings.forEach { previewText ->
-                        val color = when (previewText.partOfSpeech) {
-                            DefaultTermFeatures.PartOfSpeech.ADNOMINAL -> Color(3, 132, 252)
-                            DefaultTermFeatures.PartOfSpeech.ADJECTIVE -> Color(255, 165, 0)
-                            DefaultTermFeatures.PartOfSpeech.ADVERB -> Color(0, 128, 0)
-                            DefaultTermFeatures.PartOfSpeech.AUXILIARY -> Color(209, 36, 36)
-                            DefaultTermFeatures.PartOfSpeech.CONJUNCTION -> Color(0, 0, 255)
-                            DefaultTermFeatures.PartOfSpeech.INTERJECTION -> Color(163, 11, 118)
-                            DefaultTermFeatures.PartOfSpeech.NOUN -> Color(3, 132, 252)
-                            DefaultTermFeatures.PartOfSpeech.PARTICLE -> Color(255, 200, 0)
-                            DefaultTermFeatures.PartOfSpeech.PREFIX -> Color(255, 192, 203)
-                            DefaultTermFeatures.PartOfSpeech.SUFFIX -> Color(255, 105, 180)
-                            DefaultTermFeatures.PartOfSpeech.SYMBOL -> Color(128, 128, 0)
-                            DefaultTermFeatures.PartOfSpeech.VERB -> Color(77, 204, 63)
-                            DefaultTermFeatures.PartOfSpeech.OTHER -> Color(192, 192, 192)
-                            DefaultTermFeatures.PartOfSpeech.UNKNOWN -> Color(0, 0, 0)
-                        }
+            ElevatedCard(
+                modifier = Modifier
+                    .height(350.dp)
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                if (loading) {
+                    Column(
+                        Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            "Loading definitions...",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        CircularProgressIndicator()
+                    }
+                } else {
+                    LazyColumn(
+                        Modifier.padding(8.dp)
+                    ) {
+                        item {
+                            // text of dictionary for selected word
+                            Text(
+                                text = "Definition for ${token.baseForm ?: token.surface}",
+                                style = MaterialTheme.typography.headlineLarge
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            // sortedByDescending is stable so it will preserve the initial order
+                            // if the sort score is the same for multiple entries
+                            // This is good since there are already some preprocessing done in the dictionary
+                            japaneseEnglishEntries[token]?.sortedByDescending {
+                                // This is a simple heuristic to sort the definitions by suffixes first
+                                var sortScore = 0
 
-//                        val colorScalar by remember { mutableFloatStateOf(1.5f) }
-//                        val selectedColor = color.copy(
-//                            red = min(1F, color.red * colorScalar),
-//                            green = min(1F, color.green * colorScalar),
-//                            blue = min(1F, color.blue * colorScalar)
-//                        )
-
-                        Text(text = previewText.word, style = TextStyle(
-                            fontSize = 36.sp,
-                            color = if (showDefinitionForWord == previewText.word) Color.White else color,
-                            fontWeight = FontWeight.Bold,
-                        ), modifier = Modifier
-                            // border only on bottom
-                            .padding(end = 6.dp)
-                            .drawBehind {
-                                val strokeWidth = 2.dp.toPx()
-                                val distanceBelowText = 0.dp.toPx()
-                                val y = (size.height + distanceBelowText - strokeWidth / 2)
-
-
-                                if (previewText.partOfSpeech == DefaultTermFeatures.PartOfSpeech.OTHER || previewText.partOfSpeech == DefaultTermFeatures.PartOfSpeech.UNKNOWN) {
-                                    return@drawBehind
+                                it.englishDefinitions.forEach { definition ->
+                                    if (definition.partOfSpeech.contains("Suffix")) {
+                                        sortScore += 1
+                                    }
                                 }
 
-                                drawLine(
-                                    if (showDefinitionForWord == previewText.word) Color.White else color,
-                                    Offset(0f, y),
-                                    Offset(size.width, y),
-                                    strokeWidth
-                                )
-                            }
-                            .clickable {
-                                showDefinitionForWord = previewText.word
-                            })
-                    }
-                }
-            }
+                                sortScore
 
-            showDefinitionForWord?.let {
-                Box(
-                    contentAlignment = Alignment.Center
-                ) {
-                    ElevatedCard(
-                        modifier = Modifier
-                            .height(350.dp)
-                            .fillMaxWidth()
-                            .padding(16.dp)
-                    ) {
-                        if (loading) {
-                            Column(
-                                Modifier.fillMaxSize(),
-                                verticalArrangement = Arrangement.Center,
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Text(
-                                    "Loading definitions...",
-                                    style = MaterialTheme.typography.titleMedium
-                                )
-                                Spacer(modifier = Modifier.height(16.dp))
-                                CircularProgressIndicator()
-                            }
-                        } else {
-                            LazyColumn(
-                                Modifier.padding(8.dp)
-                            ) {
-                                item {
-                                    // text of dictionary for selected word
+                            }?.forEach { entry ->
+                                Divider(Modifier.padding(vertical = 8.dp))
+                                Row {
+                                    val kanji = entry.word
+                                    val kana = entry.wordKanaOnly
+
                                     Text(
-                                        text = "Definition for $showDefinitionForWord",
-                                        style = MaterialTheme.typography.headlineLarge
+                                        text = kanji.joinToString(", ") { it.text },
+                                        style = MaterialTheme.typography.titleLarge,
                                     )
+
+                                    // dot separator
+                                    if (kanji.isNotEmpty() && kana.isNotEmpty()) {
+                                        Text(
+                                            text = "・",
+                                            style = MaterialTheme.typography.titleLarge,
+                                        )
+                                    }
+
+                                    Text(
+                                        text = kana.joinToString(", ") { it.text },
+                                        style = MaterialTheme.typography.titleLarge,
+                                    )
+                                }
+
+                                entry.englishDefinitions.forEachIndexed { index, definition ->
                                     Spacer(modifier = Modifier.height(8.dp))
-                                    japaneseEnglishEntries[showDefinitionForWord]?.forEach { entry ->
-                                        Divider(Modifier.padding(vertical = 8.dp))
-                                        Row {
-                                            val kanji = entry.word
-                                            val kana = entry.wordKanaOnly
+                                    Text(
+                                        text = definition.partOfSpeech.joinToString(", "),
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            color = Color.Gray
+                                        ),
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
 
-                                            Text(
-                                                text = kanji.joinToString(", ") { it.text },
-                                                style = MaterialTheme.typography.titleLarge,
+                                    Row {
+                                        Text(
+                                            text = "${index + 1}. ",
+                                            style = MaterialTheme.typography.bodyLarge.copy(
+                                                color = Color.Gray
                                             )
+                                        )
 
-                                            // dot separator
-                                            if (kanji.isNotEmpty() && kana.isNotEmpty()) {
-                                                Text(
-                                                    text = "・",
-                                                    style = MaterialTheme.typography.titleLarge,
-                                                )
-                                            }
-
-                                            Text(
-                                                text = kana.joinToString(", ") { it.text },
-                                                style = MaterialTheme.typography.titleLarge,
-                                            )
-                                        }
-                                        val englishDefinitions = entry.englishDefinitions
-
-                                        englishDefinitions.forEachIndexed { index, definition ->
-                                            Spacer(modifier = Modifier.height(8.dp))
-                                            Text(
-                                                text = definition.partOfSpeech.joinToString(", "),
-                                                style = MaterialTheme.typography.bodyMedium.copy(
-                                                    color = Color.Gray
-                                                ),
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                            Spacer(modifier = Modifier.height(4.dp))
-
-                                            Row {
-                                                Text(
-                                                    text = "${index + 1}. ",
-                                                    style = MaterialTheme.typography.bodyLarge.copy(
-                                                        color = Color.Gray
-                                                    )
-                                                )
-
-                                                Text(
-                                                    text = definition.text.joinToString { it },
-                                                    style = MaterialTheme.typography.bodyLarge
-                                                )
-                                            }
-                                        }
+                                        Text(
+                                            text = definition.text.joinToString { it },
+                                            style = MaterialTheme.typography.bodyLarge
+                                        )
                                     }
                                 }
                             }
@@ -531,5 +495,5 @@ fun TextDefinition(
 }
 
 data class TextData(
-    val word: String, val partOfSpeech: DefaultTermFeatures.PartOfSpeech
+    val word: String, val partOfSpeech: String?
 )

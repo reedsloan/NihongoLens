@@ -2,6 +2,7 @@ package com.reedsloan.nihongolens.di
 
 import android.app.Application
 import androidx.room.Room
+import com.atilika.kuromoji.ipadic.Tokenizer
 import com.reedsloan.nihongolens.data.data_source.AppConfigurationDatabase
 import com.reedsloan.nihongolens.data.repository.AppConfigurationRepositoryImpl
 import com.reedsloan.nihongolens.data.repository.JMDictRepositoryImpl
@@ -14,6 +15,8 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import javax.inject.Singleton
 
 @Module

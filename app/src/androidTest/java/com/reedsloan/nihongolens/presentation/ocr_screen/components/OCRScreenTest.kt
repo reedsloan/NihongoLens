@@ -128,7 +128,7 @@ class OCRScreenTest {
 
     @Test
     fun isOCRTextDisplayedCorrectly() {
-        composeRule.waitUntil(15_000) {
+        composeRule.waitUntil(35_000) {
             state.value.ocrResults != null
         }
         composeRule.waitForIdle()

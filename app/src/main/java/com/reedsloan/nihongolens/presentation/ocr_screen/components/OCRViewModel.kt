@@ -11,9 +11,8 @@ import androidx.camera.core.ImageProxy
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.github.wanasit.kotori.Token
-import com.github.wanasit.kotori.Tokenizer
-import com.github.wanasit.kotori.optimized.DefaultTermFeatures
+import com.atilika.kuromoji.ipadic.Token
+import com.atilika.kuromoji.ipadic.Tokenizer
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.japanese.JapaneseTextRecognizerOptions
@@ -26,13 +25,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileOutputStream
 import javax.inject.Inject
 
 
 @HiltViewModel
 class OCRViewModel @Inject constructor(
     private val app: Application,
-    private val getDictionary: GetDictionary
+    private val getDictionary: GetDictionary,
 ) : ViewModel() {
     private val _state = MutableStateFlow(OCRScreenState())
     val state = _state
@@ -43,25 +44,22 @@ class OCRViewModel @Inject constructor(
         _state.update { it.copy(dictionaryIsLoading = false) }
     }
 
-    private lateinit var tokenizer: Tokenizer<DefaultTermFeatures>
+    private lateinit var tokenizer: Tokenizer
 
     private val tokenizerJob = viewModelScope.launch {
         _state.update { it.copy(tokenizerLoading = true) }
 
-        // This withContext block is a coroutine context switcher.
-        // It switches the coroutine context to Dispatchers.IO
-        // so that the tokenizer can be created on a background thread.
+        // This withContext block is a coroutine context switcher, it switches to the IO dispatcher
         withContext(Dispatchers.IO) {
-            Tokenizer.createDefaultTokenizer()
+            Tokenizer()
         }.let { result ->
             tokenizer = result
             _state.update { it.copy(tokenizerLoading = false) }
         }
     }
-
     init {
         tokenizerJob.start()
-//        dictionaryJob.start()
+        dictionaryJob.start()
     }
 
     fun onEvent(event: OCREvent) {
@@ -146,14 +144,19 @@ class OCRViewModel @Inject constructor(
         }
     }
 
-    private suspend fun getJapaneseEnglishEntries(strings: List<String>): Map<String, List<JapaneseEnglishEntry>> {
+    private suspend fun getJapaneseEnglishEntries(tokens: List<Token>): Map<Token, List<JapaneseEnglishEntry>> {
         dictionaryJob.join()
 
-        return strings.associateWith { string ->
+
+        return tokens.associateWith { token ->
             val results = emptyList<JapaneseEnglishEntry>().toMutableList()
             // Add all entries that match the string at the beginning so they are shown first
             dictionary.entries.forEach { entry ->
-                if (entry.word.any { it.text == string }) {
+                if (entry.word.any { it.text == token.baseForm }) {
+                    Log.d("OCRViewModel", "Found baseForm entry for ${token.baseForm}")
+                    results.add(entry)
+                } else if (entry.word.any { it.text == token.surface }) {
+                    Log.d("OCRViewModel", "Found surface entry for ${token.surface}")
                     results.add(entry)
                 }
             }
@@ -162,22 +165,15 @@ class OCRViewModel @Inject constructor(
             if(results.isEmpty()) {
                 // also search the kana only words
                 dictionary.entries.forEach { entry ->
-                    if (entry.wordKanaOnly.any { it.text == string }) {
+                    if (entry.wordKanaOnly.any { it.text == token.baseForm }) {
+                        Log.d("OCRViewModel", "Found baseForm entry for ${token.baseForm}")
+                        results.add(entry)
+                    } else if (entry.wordKanaOnly.any { it.text == token.surface }) {
+                        Log.d("OCRViewModel", "Found surface entry for ${token.surface}")
                         results.add(entry)
                     }
                 }
             }
-
-            // Get all entries that contain the string anywhere in the word,
-            // perhaps less relevant so they are shown last
-            // Not sure if this is actually necessary TBH will have to test
-//            dictionary.entries.forEach {  entry ->
-//                if (entry.word.any { it.text.contains(string) }) {
-//                    results.add(entry)
-//                }
-//            }
-
-            Log.d("OCRViewModel", "Results for $string: $results")
             results
         }
     }
@@ -208,7 +204,7 @@ class OCRViewModel @Inject constructor(
                                 tokenizedText = tokenizedText,
                                 angle = line.angle,
                                 id = index,
-                                japaneseEnglishEntries = getJapaneseEnglishEntries(tokenizedText.map { it.text })
+                                japaneseEnglishEntries = getJapaneseEnglishEntries(tokenizedText.map { it })
                             )
                         }
                     )
@@ -221,9 +217,40 @@ class OCRViewModel @Inject constructor(
         }
     }
 
-    private suspend fun tokenizeText(text: String): List<Token<DefaultTermFeatures>> {
+    private suspend fun tokenizeText(text: String): List<Token> {
+        // this is necessary to ensure the tokenizer is loaded before we tokenize the text
         tokenizerJob.join()
-        Log.d("OCRViewModel", "Begin tokenizing text: $text at ${System.currentTimeMillis()}")
-        return tokenizer.tokenize(text).map { it }
+
+        return tokenizer.tokenize(text)
     }
+
+    private fun getMecabIpadic(): File {
+        val mecabFolderName = "mecab-ipadic-2.7.0-20070801"
+        // check if its in the cache else copy it from assets
+        val cacheDir = app.cacheDir
+        val cacheFile = File(cacheDir, "/$mecabFolderName")
+
+        if (!cacheFile.exists()) {
+            Log.d("OCRViewModel", "$mecabFolderName does not exist in cache")
+            cacheFile.mkdir()
+            copyAssetsFolder(mecabFolderName, cacheFile)
+        }
+
+        Log.d("OCRViewModel", "$mecabFolderName exists in cache")
+        return cacheFile
+    }
+
+    @Suppress("SameParameterValue") // I'll probably need to change this later
+    private fun copyAssetsFolder(folderName: String, targetDir: File) {
+        app.assets.list(folderName)?.forEach { fileName ->
+            val inputStream = app.assets.open("$folderName/$fileName")
+            val outputFile = File(targetDir, fileName)
+            inputStream.use { input ->
+                FileOutputStream(outputFile).use { output ->
+                    input.copyTo(output)
+                }
+            }
+        }
+    }
+
 }

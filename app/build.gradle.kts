@@ -142,7 +142,7 @@ dependencies {
     implementation("androidx.constraintlayout:constraintlayout-compose:1.0.1")
 
     // Kotori
-    implementation("com.github.wanasit.kotori:kotori:1.0.0")
+//    implementation("com.github.wanasit.kotori:kotori:1.0.0")
 
     // Google Fonts API
     implementation("androidx.compose.ui:ui-text-google-fonts:1.6.3")
@@ -150,4 +150,7 @@ dependencies {
     // Moshi
     ksp("com.squareup.moshi:moshi-kotlin-codegen:1.15.0")
     implementation("com.squareup.moshi:moshi:1.15.0")
+
+    // Kuromoji
+    implementation("com.atilika.kuromoji:kuromoji-ipadic:0.9.0")
 }
