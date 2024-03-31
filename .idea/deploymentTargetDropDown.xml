@@ -2,10 +2,7 @@
 <project version="4">
   <component name="deploymentTargetDropDown">
     <value>
-      <entry key="HighlightingPreview">
-        <State />
-      </entry>
-      <entry key="OCRScreenTest">
+      <entry key="Tests in 'com'">
         <State />
       </entry>
       <entry key="app">
