@@ -148,8 +148,8 @@ dependencies {
     implementation("androidx.compose.ui:ui-text-google-fonts:1.6.3")
 
     // Moshi
-    ksp("com.squareup.moshi:moshi-kotlin-codegen:1.15.0")
-    implementation("com.squareup.moshi:moshi:1.15.0")
+    ksp("com.squareup.moshi:moshi-kotlin-codegen:1.15.1")
+    implementation("com.squareup.moshi:moshi:1.15.1")
 
     // Kuromoji
     implementation("com.atilika.kuromoji:kuromoji-ipadic:0.9.0")
