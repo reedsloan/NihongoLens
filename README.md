@@ -1,6 +1,6 @@
 # NihongoLens
 
-NihongoLens is an Android app designed to help users learn Japanese using AI technology. The app utilizes your device's camera to provide real-time translations and language learning support.
+NihongoLens is an Android app designed to help users learn Japanese using AI technology. The app utilizes your device's camera to provide real-time translations and language-learning support.
 
 **Please note that this project is currently under development and no releases have been made yet. You can build and run the app locally by following the steps below.**
 
