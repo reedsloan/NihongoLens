@@ -14,10 +14,10 @@ NihongoLens is an Android app designed to help users learn Japanese using AI tec
 - GitHub Actions for automated testing and continuous integration (CI)
 
 ## Getting Started
-1. Clone the repository: `git clone https://github.com/your-username/NihongoLens.git`
-2. Open the project in Android Studio
-3. Build and run the app on your device or emulator
-4. 
+1. Clone the repository: `git clone https://github.com/reedsloan/NihongoLens/NihongoLens.git`
+2. Open the project in Android Studio 2023.2.1 or later
+4. Build and run the app on your device or emulator
+
 ## Plans
 
 In future releases, I plan to enhance NihongoLens with the following features:
@@ -32,6 +32,3 @@ Stay tuned for updates!
 
 ## Contributing
 When the project is in a more complete state and I feel it's worthwhile I will prepare relevant info.
-
-## License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
