@@ -120,6 +120,7 @@ class OCRViewModel @Inject constructor(
                         ocrViewMode = OCRViewMode.InspectResult(event.lineId)
                     )
                 }
+                applyTokenizedAndDefinitionResultsForText(event.text, event.lineId)
             }
 
             is OCREvent.OnClickTextBlock -> {
@@ -184,6 +185,30 @@ class OCRViewModel @Inject constructor(
         _state.update { it.copy(image = image) }
     }
 
+    /**
+     * Tokenizes the text and gets the definitions for each token and updates the state with the results.
+     */
+    private fun applyTokenizedAndDefinitionResultsForText(string: String, lineId: Int) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                // Process after the OCR results are updated so we can update the tokenized text
+                val tokenizedText = tokenizeText(string)
+                val tokenToDefinitionMap = getJapaneseEnglishEntries(tokenizedText.map { it })
+
+                _state.update { ocrState ->
+                    ocrState.copy(
+                        ocrResults = ocrState.ocrResults?.map { ocrResult ->
+                            ocrResult.copy(
+                                tokenizedText = tokenizedText,
+                                tokenToDefinitionMap = ocrResult.tokenToDefinitionMap + tokenToDefinitionMap
+                            )
+                        }
+                    )
+                }
+            }
+        }
+    }
+
 
     private fun runTextRecognition(bitmap: Bitmap) {
         val image = InputImage.fromBitmap(bitmap, 0)
@@ -194,48 +219,27 @@ class OCRViewModel @Inject constructor(
                     ocrState.copy(
                         isScanning = false,
                         ocrResults =
-                        texts.textBlocks.flatMap {
-                            it.lines
-                        }.mapIndexed { index, line ->
+                        texts.textBlocks.mapIndexed { index, block ->
+                            val topLeft =block.lines.first().cornerPoints?.get(0)
+                                ?.let { Point(it.x, it.y) }!!
+                            val bottomRight = block.lines.last().cornerPoints?.get(2)
+                                ?.let { Point(it.x, it.y) }!!
+
+                            val isVertical = topLeft.x > bottomRight.x
+
                             OCRResult(
-                                text = line.text,
-                                topLeft = line.cornerPoints?.get(0)
-                                    ?.let { Point(it.x, it.y) }!!,
-                                bottomRight = line.cornerPoints?.get(2)
-                                    ?.let { Point(it.x, it.y) }!!,
-                                confidence = line.confidence,
+                                text = block.text,
+                                topLeft = topLeft,
+                                bottomRight = bottomRight,
+                                confidence = block.lines.first().confidence,
                                 tokenizedText = emptyList(),
-                                angle = line.angle,
+                                angle = block.lines.first().angle,
                                 id = index,
                                 tokenToDefinitionMap = emptyMap(),
+                                isVertical = isVertical
                             )
                         }
                     )
-                }
-
-                // Switch to the IO dispatcher to tokenize the text and get the dictionary entries so we don't block the main thread
-                withContext(Dispatchers.IO) {
-                    // Process after the OCR results are updated so we can update the tokenized text
-                    texts.textBlocks.flatMap { it.lines }.mapIndexed { index, line ->
-                        val tokenizedText = tokenizeText(line.text)
-                        val tokenToDefinitionMap =
-                            getJapaneseEnglishEntries(tokenizedText.map { it })
-
-                        _state.update { ocrState ->
-                            ocrState.copy(
-                                ocrResults = ocrState.ocrResults?.mapIndexed { i, ocrResult ->
-                                    if (i == index) {
-                                        ocrResult.copy(
-                                            tokenizedText = tokenizedText,
-                                            tokenToDefinitionMap = tokenToDefinitionMap
-                                        )
-                                    } else {
-                                        ocrResult
-                                    }
-                                }
-                            )
-                        }
-                    }
                 }
             }
         }.addOnFailureListener { e -> // Task failed with an exception

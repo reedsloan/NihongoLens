@@ -9,6 +9,7 @@ import androidx.camera.view.LifecycleCameraController
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.ScrollableDefaults
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,11 +32,14 @@ import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
-import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -192,14 +196,12 @@ fun OCRScreen(
 
                 when (ocrScreenState.ocrViewMode) {
                     OCRViewMode.Camera -> {
-                        IconButton(
-                            enabled = !ocrScreenState.isScanning,
-                            onClick = {
-                                onOCREvent(OCREvent.ClickCamera(cameraController, displayMetrics))
-                            }, modifier = Modifier.constrainAs(bottomRightButton) {
-                                bottom.linkTo(parent.bottom)
-                                end.linkTo(parent.end)
-                            }) {
+                        IconButton(enabled = !ocrScreenState.isScanning, onClick = {
+                            onOCREvent(OCREvent.ClickCamera(cameraController, displayMetrics))
+                        }, modifier = Modifier.constrainAs(bottomRightButton) {
+                            bottom.linkTo(parent.bottom)
+                            end.linkTo(parent.end)
+                        }) {
                             Icon(
                                 imageVector = Icons.Default.PhotoCamera,
                                 contentDescription = "Capture Image"
@@ -209,13 +211,12 @@ fun OCRScreen(
 
                     else -> {
                         // back button
-                        IconButton(
-                            onClick = {
-                                onOCREvent(OCREvent.OnBack(navController::popBackStack))
-                            }, modifier = Modifier.constrainAs(bottomRightButton) {
-                                bottom.linkTo(parent.bottom)
-                                end.linkTo(parent.end)
-                            }) {
+                        IconButton(onClick = {
+                            onOCREvent(OCREvent.OnBack(navController::popBackStack))
+                        }, modifier = Modifier.constrainAs(bottomRightButton) {
+                            bottom.linkTo(parent.bottom)
+                            end.linkTo(parent.end)
+                        }) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = "Back"
@@ -288,35 +289,37 @@ fun RecognizedText(
                             Modifier
                                 .fillMaxSize()
                                 .drawWithContent {
-                                    // draw a dot at the top left corner of the bounding box
-                                    drawCircle(
-                                        color = Color.Red, radius = 10f, center = Offset(
-                                            translationXAdjusted, translationYAdjusted
+                                    if (ocrResult.isVertical) {
+                                        // draw a dot at the top left corner of the bounding box
+                                        drawCircle(
+                                            color = Color.Magenta, radius = 10f, center = Offset(
+                                                translationXAdjusted, translationYAdjusted
+                                            )
                                         )
-                                    )
 
-                                    // draw a blue dot at the bottom right corner of the bounding box
-                                    drawCircle(
-                                        color = Color.Blue, radius = 10f, center = Offset(
-                                            bottomRightTranslationXAdjusted,
-                                            bottomRightTranslationYAdjusted
+                                        // draw a blue dot at the bottom right corner of the bounding box
+                                        drawCircle(
+                                            color = Color.Cyan, radius = 10f, center = Offset(
+                                                bottomRightTranslationXAdjusted,
+                                                bottomRightTranslationYAdjusted
+                                            )
                                         )
-                                    )
+                                    } else {
+                                        // draw a dot at the top left corner of the bounding box
+                                        drawCircle(
+                                            color = Color.Red, radius = 10f, center = Offset(
+                                                translationXAdjusted, translationYAdjusted
+                                            )
+                                        )
 
-                                    // draw a big blue circle at the center of the image
-                                    drawCircle(
-                                        color = Color.Blue, radius = 30f, center = Offset(
-                                            imageOrigin.x * (displayMetrics.widthPixels.toFloat() / image.width.toFloat()),
-                                            imageOrigin.y * (displayMetrics.heightPixels.toFloat() / image.height.toFloat())
+                                        // draw a blue dot at the bottom right corner of the bounding box
+                                        drawCircle(
+                                            color = Color.Blue, radius = 10f, center = Offset(
+                                                bottomRightTranslationXAdjusted,
+                                                bottomRightTranslationYAdjusted
+                                            )
                                         )
-                                    )
-
-                                    // draw a big green circle at the center of the device
-                                    drawCircle(
-                                        color = Color.Green, radius = 20f, center = Offset(
-                                            deviceOrigin.x, deviceOrigin.y
-                                        )
-                                    )
+                                    }
                                 }) {}
 
                         val width by rememberSaveable {
@@ -334,30 +337,30 @@ fun RecognizedText(
                             contentAlignment = Alignment.Center
                         ) {
                             // The text scanned from the image in the OCR result
-                            AutoResizedText(
-                                text = ocrResult.text,
-                                style = TextStyle(
-                                    fontSize = 20.sp,
-                                    color = Color.Black,
-                                    fontWeight = FontWeight.Bold
-                                ),
-                                modifier = Modifier
-                                    .testTag("OCRText")
-                                    .graphicsLayer {
-                                        translationX = translationXAdjusted
-                                        translationY = translationYAdjusted
-                                        rotationZ = ocrResult.angle
-                                    }
-                                    .width((width / displayMetrics.density).dp)
+                            Text(text = ocrResult.text, style = TextStyle(
+                                fontSize = 20.sp,
+                                color = Color.Black,
+                                fontWeight = FontWeight.Bold
+                            ), modifier = Modifier
+                                .testTag("OCRText")
+                                .graphicsLayer {
+                                    translationX = translationXAdjusted
+                                    translationY = translationYAdjusted
+                                    rotationZ = ocrResult.angle
+                                }
+                                .width((width / displayMetrics.density).dp)
 //                                    .height((height * 1.2F / displayMetrics.density).dp)
-                                    .background(
-                                        Color.White.copy(alpha = 0.8F),
-                                        shape = MaterialTheme.shapes.extraSmall
+                                .background(
+                                    Color.White.copy(alpha = 0.8F),
+                                    shape = MaterialTheme.shapes.extraSmall
+                                )
+                                .clickable {
+                                    onOCREvent(
+                                        OCREvent.OnClickLine(
+                                            ocrResult.id, ocrResult.text
+                                        )
                                     )
-                                    .clickable {
-                                        onOCREvent(OCREvent.OnClickLine(ocrResult.id))
-                                    }
-                            )
+                                })
                         }
                     }
                 }
@@ -380,7 +383,7 @@ fun RecognizedText(
 }
 
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun TextLookup(
     loading: Boolean = false,
@@ -390,6 +393,10 @@ fun TextLookup(
 ) {
     var showDefinitionForToken: Token? by remember { mutableStateOf(null) }
     val interactionSource = remember { MutableInteractionSource() }
+    // Bottom Sheet
+    val sheetState = rememberModalBottomSheetState()
+    var isSheetOpen by rememberSaveable { mutableStateOf(false) }
+
     Box(
         Modifier
             .fillMaxSize()
@@ -399,31 +406,30 @@ fun TextLookup(
             .padding(16.dp)
             .clickable(indication = null, interactionSource = interactionSource) {
                 showDefinitionForToken = null
-            },
-        contentAlignment = Alignment.Center) {
+                isSheetOpen = true
+            }, contentAlignment = Alignment.Center
+    ) {
 
         FlowRow {
             if (tokenizedText.isNotEmpty()) {
                 tokenizedText.forEach { featuresToken ->
                     SelectionContainer {
-                    ExtractedText(featuresToken) {
-                        // be careful because we have to lookup the root form of the word
-                        Log.d(
-                            "TextLookup",
-                            "conjugationForm: ${featuresToken.conjugationForm}"
-                        )
-                        Log.d(
-                            "TextLookup",
-                            "conjugationType: ${featuresToken.conjugationType}"
-                        )
-                        showDefinitionForToken = featuresToken
+                        ExtractedText(featuresToken) {
+                            // be careful because we have to lookup the root form of the word
+                            Log.d(
+                                "TextLookup", "conjugationForm: ${featuresToken.conjugationForm}"
+                            )
+                            Log.d(
+                                "TextLookup", "conjugationType: ${featuresToken.conjugationType}"
+                            )
+                            showDefinitionForToken = featuresToken
+                            isSheetOpen = true
+                        }
                     }
-                }
                 }
             } else {
                 Text(
-                    text = previewText,
-                    style = TextStyle(
+                    text = previewText, style = TextStyle(
                         fontSize = 36.sp,
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
@@ -454,14 +460,21 @@ fun TextLookup(
     }
 
     showDefinitionForToken?.let {
-        WordDefinition(showDefinitionForToken, loading, japaneseEnglishEntries)
+        WordDefinitionBottomSheet(token = showDefinitionForToken,
+            loading = loading,
+            japaneseEnglishEntries = japaneseEnglishEntries,
+            sheetState = sheetState,
+            isSheetOpen = isSheetOpen,
+            onDismissRequest = {
+                showDefinitionForToken = null
+                isSheetOpen = false
+            })
     }
 }
 
 @Composable
 private fun ExtractedText(
-    featuresToken: Token,
-    onClick: () -> Unit
+    featuresToken: Token, onClick: () -> Unit
 ) {
     Text(text = featuresToken.surface, style = TextStyle(
         fontSize = 36.sp,
@@ -476,10 +489,7 @@ private fun ExtractedText(
             val y = (size.height + distanceBelowText - strokeWidth / 2)
 
             drawLine(
-                Color.White,
-                Offset(0f, y),
-                Offset(size.width, y),
-                strokeWidth
+                Color.White, Offset(0f, y), Offset(size.width, y), strokeWidth
             )
         }
         .clickable {
@@ -487,61 +497,65 @@ private fun ExtractedText(
         })
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun WordDefinition(
+private fun WordDefinitionBottomSheet(
     token: Token?,
     loading: Boolean,
-    japaneseEnglishEntries: Map<Token, List<JapaneseEnglishEntry>>
+    japaneseEnglishEntries: Map<Token, List<JapaneseEnglishEntry>>,
+    sheetState: SheetState,
+    isSheetOpen: Boolean,
+    onDismissRequest: () -> Unit
 ) {
-    Box(
-        contentAlignment = Alignment.Center
-    ) {
-        ElevatedCard(
-            modifier = Modifier
-                .height(350.dp)
-                .fillMaxWidth()
-                .padding(16.dp)
+    if (isSheetOpen) {
+        Box(
+            contentAlignment = Alignment.Center
         ) {
-            if (loading || token == null) {
-                Column(
-                    Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        "Loading definitions...",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    CircularProgressIndicator()
-                }
-            } else {
-                LazyColumn(
-                    Modifier.padding(8.dp)
-                ) {
-                    item {
-                        // text of dictionary for selected word
+            ModalBottomSheet(
+                onDismissRequest = { onDismissRequest() },
+                sheetState = sheetState,
+            ) {
+                if (loading || token == null) {
+                    Column(
+                        Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
                         Text(
-                            text = "Definition for ${token.baseForm ?: token.surface}",
-                            style = MaterialTheme.typography.headlineLarge
+                            "Loading definitions...", style = MaterialTheme.typography.titleMedium
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
+                        CircularProgressIndicator()
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.padding(8.dp),
+                        flingBehavior = ScrollableDefaults.flingBehavior()
+                    ) {
+                        item {
+                            // text of dictionary for selected word
+                            Text(
+                                text = "Definition for ${token.baseForm ?: token.surface}",
+                                style = MaterialTheme.typography.headlineLarge
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
 
-                        val sortedEntries = japaneseEnglishEntries[token]?.sortedByDescending {
-                            // This is a simple heuristic to sort the definitions by suffixes first
-                            var sortScore = 0
-                            it.englishDefinitions.forEach { definition ->
-                                if (definition.partOfSpeech.contains("Suffix")) {
-                                    sortScore += 1
+                            val sortedEntries = japaneseEnglishEntries[token]?.sortedBy {
+                                // This is a simple heuristic to sort the definitions by suffixes first
+                                var sortScore = 0
+                                it.englishDefinitions.forEach { definition ->
+                                    if (definition.partOfSpeech.contains("Suffix")) {
+                                        sortScore += 1
+                                    }
                                 }
-                            }
-                            sortScore
-                        } ?: emptyList()
+                                sortScore
+                            } ?: emptyList()
 
-                        sortedEntries.forEach { entry ->
-                            Divider(Modifier.padding(vertical = 8.dp))
-                            KanjiAndKanaForWord(entry)
-                            JapaneseWithEnglishDefinitions(entry)
+                            sortedEntries.forEach { entry ->
+                                Divider(Modifier.padding(vertical = 8.dp))
+                                KanjiAndKanaForWord(entry)
+                                JapaneseWithEnglishDefinitions(entry)
+                            }
                         }
                     }
                 }
@@ -591,8 +605,7 @@ private fun JapaneseWithEnglishDefinitions(entry: JapaneseEnglishEntry) {
 
         Row {
             Text(
-                text = "${index + 1}. ",
-                style = MaterialTheme.typography.bodyLarge.copy(
+                text = "${index + 1}. ", style = MaterialTheme.typography.bodyLarge.copy(
                     color = Color.Gray
                 )
             )

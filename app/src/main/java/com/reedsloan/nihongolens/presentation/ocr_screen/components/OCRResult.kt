@@ -1,5 +1,6 @@
 package com.reedsloan.nihongolens.presentation.ocr_screen.components
 
+import android.graphics.Bitmap
 import android.graphics.Point
 import com.atilika.kuromoji.ipadic.Token
 import com.reedsloan.nihongolens.domain.model.JapaneseEnglishEntry
@@ -13,4 +14,5 @@ data class OCRResult(
     val angle: Float,
     val id: Int,
     val tokenToDefinitionMap: Map<Token, List<JapaneseEnglishEntry>> = emptyMap(),
+    val isVertical: Boolean
 )

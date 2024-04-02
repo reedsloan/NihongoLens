@@ -8,7 +8,7 @@ import com.google.mlkit.vision.text.Text
 sealed class OCREvent {
     data class ClickCamera(val localCameraController: LifecycleCameraController, val displayMetrics: DisplayMetrics) : OCREvent()
     data class OnClickTextBlock(val textBlock: Text.TextBlock) : OCREvent()
-    data class OnClickLine(val lineId: Int) : OCREvent()
+    data class OnClickLine(val lineId: Int, val text: String) : OCREvent()
     data class OnClickWord(val word: String) : OCREvent()
 
     data class OnBack(val navigateBack: () -> Unit) : OCREvent()
